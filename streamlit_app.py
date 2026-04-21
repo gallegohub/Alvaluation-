@@ -1267,8 +1267,25 @@ with tab_port:
             
             c_port1, c_port2 = st.columns([1, 1])
             with c_port1:
-                fig_pie = go.Figure(data=[go.Pie(labels=df_port.index, values=df_port['Valor Total'], hole=.5, marker_colors=['#d4af37', '#00C853', '#2962FF', '#FF3D00', '#9C27B0', '#FFC107'])])
-                fig_pie.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+                premium_colors = ['#d4af37', '#b38d22', '#f9e596', '#8a6e1c', '#e2c764', '#594611', '#fff']
+                fig_pie = go.Figure(data=[go.Pie(
+                    labels=df_port.index, 
+                    values=df_port['Valor Total'], 
+                    hole=0.75, 
+                    marker=dict(colors=premium_colors, line=dict(color='#0a0b10', width=2)),
+                    textinfo='label+percent',
+                    textposition='outside',
+                    hoverinfo='label+value+percent'
+                )])
+                fig_pie.update_layout(
+                    height=350, 
+                    margin=dict(l=20, r=20, t=20, b=20), 
+                    paper_bgcolor="rgba(0,0,0,0)", 
+                    plot_bgcolor="rgba(0,0,0,0)", 
+                    font=dict(family="Inter", color="rgba(255,255,255,0.7)"),
+                    showlegend=False,
+                    annotations=[dict(text="ASSET<br>ALLOCATION", x=0.5, y=0.5, font_size=12, font_color="#d4af37", showarrow=False)]
+                )
                 st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
             with c_port2:
                 st.markdown("<br><br>", unsafe_allow_html=True)
@@ -1286,14 +1303,17 @@ with tab_port:
                                     port_hists[tk] = h_d
                                     
                         if len(port_hists) > 0:
-                            df_p = pd.DataFrame(port_hists).dropna()
-                            daily_returns = df_p.pct_change().dropna()
-                            
-                            weights = np.array([(port[tk] * df_p[tk].iloc[-1]) / total_value for tk in df_p.columns])
-                            port_return = daily_returns.dot(weights)
-                            
-                            mu_p = port_return.mean()
-                            sigma_p = port_return.std()
+                            df_p = pd.DataFrame(port_hists).ffill().bfill()
+                            if not df_p.empty:
+                                daily_returns = df_p.pct_change().dropna()
+                                
+                                # Use simulation close prices to ensure weights sum to exactly 1.0
+                                sim_total_val = sum([port[tk] * df_p[tk].iloc[-1] for tk in df_p.columns])
+                                weights = np.array([(port[tk] * df_p[tk].iloc[-1]) / sim_total_val for tk in df_p.columns])
+                                port_return = daily_returns.dot(weights)
+                                
+                                mu_p = port_return.mean()
+                                sigma_p = port_return.std()
                             
                             days = 252
                             sims = 1000
