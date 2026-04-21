@@ -495,8 +495,8 @@ st.markdown(f"""
 st.caption(f"{sector} · {industry} · {country} · Cap: {fmt_big(mkt_cap)}")
 
 # ── Tabs ──
-tab_chart, tab_ta, tab_fin, tab_dcf, tab_comp, tab_thesis, tab_backtest = st.tabs([
-    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", "💰 Valoración DCF", "⚖️ Comparativa", "📝 Tesis de Inversión", "🤖 Á.L.V.A.R.O. Backtest"
+tab_chart, tab_ta, tab_fin, tab_dcf, tab_comp, tab_thesis, tab_backtest, tab_mc, tab_port = st.tabs([
+    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", "💰 Valoración DCF", "⚖️ Comparativa", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera"
 ])
 
 # ── Tab 1: Chart ──
@@ -657,6 +657,45 @@ with tab_ta:
         }
         pat_base = pattern_status.split(" (")[0]
         col3.metric("Patrón (Últimas 5 velas)", pattern_status, help=help_texts.get(pat_base, help_texts["Ninguno"]))
+        
+        st.divider()
+        st.markdown("### 🕵️‍♂️ Flujo Institucional (Mercado de Opciones)")
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Análisis del ratio Put/Call para detectar dónde están apostando los 'Tiburones' de Wall Street.</p>", unsafe_allow_html=True)
+        
+        try:
+            tk_obj = yf.Ticker(ticker)
+            opts = tk_obj.options
+            if opts:
+                exp_date = opts[0]
+                chain = tk_obj.option_chain(exp_date)
+                vol_calls = chain.calls['volume'].sum() or 0
+                vol_puts = chain.puts['volume'].sum() or 0
+                
+                if vol_calls > 0 or vol_puts > 0:
+                    pc_ratio = vol_puts / vol_calls if vol_calls > 0 else 99
+                    
+                    cc1, cc2, cc3 = st.columns(3)
+                    cc1.metric(f"CALLS (Apuestas Alcistas)", f"{int(vol_calls):,}")
+                    cc2.metric(f"PUTS (Apuestas Bajistas)", f"{int(vol_puts):,}")
+                    
+                    if pc_ratio > 1.2:
+                        sent = "Extremo Pánico (Bajista)"
+                        col_s = color_down
+                    elif pc_ratio < 0.7:
+                        sent = "Extrema Euforia (Alcista)"
+                        col_s = color_up
+                    else:
+                        sent = "Neutral"
+                        col_s = "gray"
+                        
+                    cc3.metric("Ratio Put/Call", f"{pc_ratio:.2f}", help=">1.2 indica miedo extremo (Puts). <0.7 indica euforia (Calls).")
+                    st.markdown(f"<div class='glow-hover' style='border: 1px solid {col_s}; padding: 10px; border-radius: 8px; text-align: center; color: {col_s}; font-weight: 600;'>Veredicto Institucional a corto plazo: {sent} (Vencimiento: {exp_date})</div>", unsafe_allow_html=True)
+                else:
+                    st.info("Poco volumen de opciones para esta fecha.")
+            else:
+                st.info("Esta acción no tiene mercado de opciones activo (solo disponible para empresas muy grandes).")
+        except Exception as e:
+            st.warning("No se pudieron cargar los datos de opciones institucionales en este momento.")
 
 
 # ── Tab 3: Financial Trends ──
@@ -895,6 +934,32 @@ with tab_comp:
         df_comp = pd.DataFrame(comp_list).set_index("Ticker")
         st.dataframe(df_comp.style.format("{:.2f}x", na_rep="N/A"), use_container_width=True)
 
+    st.divider()
+    st.markdown("### 🥊 Fuerza Relativa (vs S&P 500)")
+    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>¿Está la acción batiendo al mercado global este periodo?</p>", unsafe_allow_html=True)
+    
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def get_sp500(per):
+        try: return yf.Ticker("^GSPC").history(period=per)
+        except: return pd.DataFrame()
+        
+    sp500_hist = get_sp500(chart_period)
+    if not sp500_hist.empty and not hist.empty:
+        base_stock = hist['Close'].iloc[0]
+        base_sp = sp500_hist['Close'].iloc[0]
+        
+        norm_stock = (hist['Close'] / base_stock) * 100
+        norm_sp = (sp500_hist['Close'] / base_sp) * 100
+        
+        fig_rel = go.Figure()
+        fig_rel.add_trace(go.Scatter(x=norm_stock.index, y=norm_stock, mode='lines', name=ticker, line=dict(color='#d4af37', width=2)))
+        fig_rel.add_trace(go.Scatter(x=norm_sp.index, y=norm_sp, mode='lines', name='S&P 500', line=dict(color='rgba(255,255,255,0.4)', width=2, dash='dot')))
+        
+        fig_rel.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", hovermode="x unified", font=dict(family="Inter"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig_rel.update_yaxes(title="Rendimiento Base 100", showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+        fig_rel.update_xaxes(showgrid=False)
+        st.plotly_chart(fig_rel, use_container_width=True, config={'displayModeBar': False})
+
 # ── Tab 6: Tesis de Inversión ──
 with tab_thesis:
     st.markdown("### 📝 Generador de Tesis Fundamental")
@@ -1064,6 +1129,124 @@ with tab_backtest:
                     st.error("No hay suficientes datos históricos para este activo.")
             except Exception as e:
                 st.error(f"Error en el backtest: {e}")
+
+# ── Tab 8: Monte Carlo Simulator ──
+with tab_mc:
+    st.markdown("### 🎲 Simulador de Riesgo Monte Carlo")
+    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Simulación estocástica de 1.000 escenarios futuros para calcular probabilidades reales de pérdida o ganancia en los próximos 12 meses basándose en volatilidad matemática pura.</p>", unsafe_allow_html=True)
+    
+    with st.expander("🎓 ¿Cómo funciona este simulador y por qué lo usan los bancos?"):
+        st.markdown("""
+        **La Bola de Cristal de Wall Street:** En lugar de adivinar si la acción va a subir o bajar, el método Monte Carlo acepta que el mercado es caótico. 
+        Lo que hace es medir exactamente cómo se ha movido esta acción en el pasado (su volatilidad media) y utiliza algoritmos de azar (movimiento browniano) para generar **1.000 futuros paralelos**. 
+        Al final, contamos en cuántos de esos futuros la acción terminó dando dinero y en cuántos se hundió. Esto te da una *probabilidad real matemática*, quitando las emociones humanas de en medio.
+        """)
+        
+    if st.button("Ejecutar 1.000 Simulaciones Institucionales", use_container_width=True):
+        if not hist.empty and len(hist) > 50:
+            returns = hist['Close'].pct_change().dropna()
+            mu = returns.mean()
+            sigma = returns.std()
+            
+            days = 252 # 1 trading year
+            simulations = 1000
+            last_price = hist['Close'].iloc[-1]
+            
+            paths = np.zeros((days, simulations))
+            paths[0] = last_price
+            
+            # Progreso
+            with st.spinner("Generando 1.000 realidades alternativas..."):
+                for t in range(1, days):
+                    rand_rets = np.random.normal(mu, sigma, simulations)
+                    paths[t] = paths[t-1] * (1 + rand_rets)
+                
+            final_prices = paths[-1]
+            prob_gain = (final_prices > last_price).mean() * 100
+            prob_loss_20 = (final_prices < (last_price * 0.80)).mean() * 100
+            
+            # Percentiles (Worst 5% and Best 5%)
+            p5 = np.percentile(final_prices, 5)
+            p95 = np.percentile(final_prices, 95)
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Prob. Ganancia (1 Año)", f"{prob_gain:.1f}%", help="Porcentaje de los 1.000 futuros en los que cerrarías el año con dinero extra.")
+            c2.metric("Prob. Caída Severa (>20%)", f"{prob_loss_20:.1f}%", help="Mide el riesgo extremo ('Tail Risk'). Probabilidad de perder más de un quinto de tu inversión.")
+            c3.metric("Precio Promedio Esperado", f"{sym}{np.mean(final_prices):.2f}", help="La media matemática de los 1.000 escenarios.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            c4, c5 = st.columns(2)
+            c4.metric("Peor Escenario (Percentil 5)", f"{sym}{p5:.2f}", help="En el 95% de los escenarios, ganarás más dinero que esto. Es tu 'red de seguridad' pesimista.")
+            c5.metric("Mejor Escenario (Percentil 95)", f"{sym}{p95:.2f}", help="En un escenario hiper-optimista (solo un 5% de probabilidad de ser mejor que esto), podrías ganar hasta aquí.")
+            
+            fig_mc = go.Figure()
+            for i in range(50):
+                fig_mc.add_trace(go.Scatter(y=paths[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
+                
+            fig_mc.add_hline(y=last_price, line_dash="dot", line_color="white", annotation_text="Precio Actual")
+            fig_mc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", title="Muestra Visual: 50 Escenarios de Prueba Aleatorios", font=dict(family="Inter"))
+            st.plotly_chart(fig_mc, use_container_width=True, config={'displayModeBar': False})
+            
+            # AI Conclusion
+            verdicto = "riesgo aceptable" if prob_loss_20 < 15 else "riesgo MUY ALTO"
+            st.markdown(f"""
+            <div class='glow-hover' style='background: rgba(128,128,128,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 20px;'>
+                <h4 style='color: #d4af37; margin-top: 0;'>🤖 Interpretación de Á.L.V.A.R.O.</h4>
+                <p style='font-size: 0.9rem; line-height: 1.5; margin-bottom: 0;'>
+                Basado en el caos matemático de los últimos años, si compras hoy, tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año en positivo. 
+                El peor escenario probable (que ocurre solo en un 5% de los multiversos) te dejaría la acción en <b>{sym}{p5:.2f}</b>, mientras que el mejor de los casos la impulsaría a <b>{sym}{p95:.2f}</b>. 
+                Dado que hay un {prob_loss_20:.1f}% de probabilidad de que tu cartera caiga más de un 20%, consideramos que es una inversión de <b>{verdicto}</b> desde el punto de vista estadístico.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        else:
+            st.warning("No hay suficientes datos históricos para simular volatilidad.")
+
+# ── Tab 9: Portfolio Tracker ──
+with tab_port:
+    st.markdown("### 💼 Tu Cartera de Inversión Global")
+    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Añade acciones para visualizar el valor total de tu patrimonio en tiempo real.</p>", unsafe_allow_html=True)
+    
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = {}
+        
+    c1, c2, c3 = st.columns([2, 1, 1])
+    port_ticker = c1.text_input("Ticker", placeholder="Ej: MSFT", label_visibility="collapsed")
+    port_shares = c2.number_input("Acciones", min_value=0.0, step=1.0, value=1.0, label_visibility="collapsed")
+    
+    if c3.button("➕ Añadir Acción", use_container_width=True):
+        if port_ticker:
+            st.session_state["portfolio"][port_ticker.upper()] = port_shares
+            st.rerun()
+            
+    port = st.session_state["portfolio"]
+    if port:
+        port_data = []
+        total_value = 0
+        
+        with st.spinner("Calculando valoración de la cartera en tiempo real..."):
+            for t, shares in port.items():
+                if shares > 0:
+                    try:
+                        p_info = yf.Ticker(t).fast_info
+                        p_price = p_info.last_price
+                        val = p_price * shares
+                        total_value += val
+                        port_data.append({"Ticker": t, "Acciones": shares, "Precio Actual": p_price, "Valor Total": val})
+                    except: pass
+                
+        if port_data:
+            st.markdown(f"<div class='glow-hover' style='background: rgba(212,175,55,0.05); border: 1px solid #d4af37; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;'><h3 style='margin:0; opacity: 0.8;'>Valor Total de la Cartera</h3><h1 style='color: #d4af37; margin:0; font-size: 3rem;'>${total_value:,.2f}</h1></div>", unsafe_allow_html=True)
+            
+            df_port = pd.DataFrame(port_data).set_index("Ticker")
+            st.dataframe(df_port.style.format({"Precio Actual": "${:.2f}", "Valor Total": "${:.2f}"}), use_container_width=True)
+            
+        if st.button("🗑️ Vaciar Cartera", type="secondary"):
+            st.session_state["portfolio"] = {}
+            st.rerun()
+    else:
+        st.info("Tu cartera está vacía. Añade tu primera acción arriba.")
 
 # ── Export PDF / HTML ──
 if ticker and not income.empty:
