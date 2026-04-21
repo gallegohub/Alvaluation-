@@ -65,6 +65,9 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
+    /* Golden Progress Bar */
+    [data-testid="stProgressBar"] > div > div { background-color: #d4af37 !important; box-shadow: 0 0 10px rgba(212,175,55,0.8); }
+
     /* Á.L.V.A.R.O. Premium Candles Loader */
     [data-testid="stStatusWidget"] * { display: none !important; }
     [data-testid="stStatusWidget"] {
@@ -75,7 +78,7 @@ st.markdown("""
         width: 8px !important; height: 24px !important;
         filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.8)) !important;
         border: none !important;
-        position: fixed !important; top: 25px !important; right: 380px !important;
+        position: fixed !important; top: 25px !important; right: 250px !important;
         animation: candle-pulse 0.8s ease-in-out infinite alternate !important;
         padding: 0 !important; min-width: 0 !important; display: block !important;
         box-shadow: none !important;
@@ -387,7 +390,7 @@ if not ticker:
                     return pd.DataFrame()
             
             for i, t in enumerate(all_ticks):
-                stat.markdown(f"<p style='text-align:center; font-size:12px; opacity:0.6;'>Analizando {t}...</p>", unsafe_allow_html=True)
+                stat.markdown(f"<p style='text-align:center; font-size:13px; font-weight:600; opacity:0.8; color: #d4af37;'>Analizando {i+1}/{len(all_ticks)}: Buscando anomalías en {t}...</p>", unsafe_allow_html=True)
                 
                 h = fetch_scanner_hist(t)
                 if len(h) >= 2:
@@ -484,11 +487,32 @@ pct_change = info.get('regularMarketChangePercent', 0)
 chg_color = color_up if pct_change >= 0 else color_down
 sign = "+" if pct_change >= 0 else ""
 
+div_yield = info.get("dividendYield", 0)
+if div_yield is None: div_yield = 0
+div_str = f"{div_yield*100:.2f}%" if div_yield > 0 else "0%"
+
+net_cash = info.get("totalCash", 0) - info.get("totalDebt", 0)
+dte = info.get("debtToEquity", 0)
+if dte is None: dte = 0
+
+if net_cash > 0:
+    debt_str = "<span style='color: #00C853;'>🟢 Caja Neta Positiva</span>"
+elif dte > 100:
+    debt_str = "<span style='color: #FF3D00;'>🔴 Alta Deuda</span>"
+elif dte > 0:
+    debt_str = "<span style='color: #d4af37;'>🟡 Deuda Moderada</span>"
+else:
+    debt_str = "⚪ Desconocido"
+
 st.markdown(f"<h1 style='font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin-bottom: -15px;'>{name} <span style='font-weight: 300; opacity: 0.4; font-size: 1.5rem;'>{ticker}</span></h1>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="margin-bottom: 30px;">
         <span class='big-price'>{sym}{price:,.2f}</span>
         <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Rentabilidad x Dividendo: <b>{div_str}</b></span>
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 Salud Financiera: <b>{debt_str}</b></span>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -1240,11 +1264,72 @@ with tab_port:
             st.markdown(f"<div class='glow-hover' style='background: rgba(212,175,55,0.05); border: 1px solid #d4af37; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;'><h3 style='margin:0; opacity: 0.8;'>Valor Total de la Cartera</h3><h1 style='color: #d4af37; margin:0; font-size: 3rem;'>${total_value:,.2f}</h1></div>", unsafe_allow_html=True)
             
             df_port = pd.DataFrame(port_data).set_index("Ticker")
-            st.dataframe(df_port.style.format({"Precio Actual": "${:.2f}", "Valor Total": "${:.2f}"}), use_container_width=True)
             
-        if st.button("🗑️ Vaciar Cartera", type="secondary"):
-            st.session_state["portfolio"] = {}
-            st.rerun()
+            c_port1, c_port2 = st.columns([1, 1])
+            with c_port1:
+                fig_pie = go.Figure(data=[go.Pie(labels=df_port.index, values=df_port['Valor Total'], hole=.5, marker_colors=['#d4af37', '#00C853', '#2962FF', '#FF3D00', '#9C27B0', '#FFC107'])])
+                fig_pie.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+                st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+            with c_port2:
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                st.dataframe(df_port.style.format({"Precio Actual": "${:.2f}", "Valor Total": "${:.2f}"}), use_container_width=True)
+            
+            st.divider()
+            if st.button("🎲 Simulación Monte Carlo Global de Cartera", type="primary", use_container_width=True):
+                with st.spinner("Calculando matriz de covarianza y simulando 1.000 futuros globales..."):
+                    try:
+                        port_hists = {}
+                        for tk, sh in port.items():
+                            if sh > 0:
+                                h_d = yf.Ticker(tk).history(period="1y")['Close']
+                                if not h_d.empty:
+                                    port_hists[tk] = h_d
+                                    
+                        if len(port_hists) > 0:
+                            df_p = pd.DataFrame(port_hists).dropna()
+                            daily_returns = df_p.pct_change().dropna()
+                            
+                            weights = np.array([(port[tk] * df_p[tk].iloc[-1]) / total_value for tk in df_p.columns])
+                            port_return = daily_returns.dot(weights)
+                            
+                            mu_p = port_return.mean()
+                            sigma_p = port_return.std()
+                            
+                            days = 252
+                            sims = 1000
+                            paths_p = np.zeros((days, sims))
+                            paths_p[0] = total_value
+                            
+                            for t in range(1, days):
+                                rand_rets = np.random.normal(mu_p, sigma_p, sims)
+                                paths_p[t] = paths_p[t-1] * (1 + rand_rets)
+                                
+                            final_p = paths_p[-1]
+                            p5_p = np.percentile(final_p, 5)
+                            p95_p = np.percentile(final_p, 95)
+                            prob_loss = (final_p < total_value).mean() * 100
+                            
+                            st.markdown(f"#### 🔮 Proyección a 1 Año (Diversificada)")
+                            c_m1, c_m2, c_m3 = st.columns(3)
+                            c_m1.metric("Peor Escenario (P5)", f"${p5_p:,.2f}")
+                            c_m2.metric("Promedio Esperado", f"${np.mean(final_p):,.2f}")
+                            c_m3.metric("Mejor Escenario (P95)", f"${p95_p:,.2f}")
+                            
+                            fig_pmc = go.Figure()
+                            for i in range(50):
+                                fig_pmc.add_trace(go.Scatter(y=paths_p[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
+                            fig_pmc.add_hline(y=total_value, line_dash="dot", line_color="white", annotation_text="Valor Actual")
+                            fig_pmc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+                            st.plotly_chart(fig_pmc, use_container_width=True, config={'displayModeBar': False})
+                            
+                            st.info(f"Probabilidad estadística de perder dinero este año con la cartera actual: **{prob_loss:.1f}%**")
+                    except Exception as e:
+                        st.error(f"Error en simulación: {e}")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🗑️ Vaciar Cartera", type="secondary"):
+                st.session_state["portfolio"] = {}
+                st.rerun()
     else:
         st.info("Tu cartera está vacía. Añade tu primera acción arriba.")
 
