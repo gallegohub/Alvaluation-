@@ -75,7 +75,7 @@ st.markdown("""
         width: 8px !important; height: 24px !important;
         filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.8)) !important;
         border: none !important;
-        position: fixed !important; top: 25px !important; right: 180px !important;
+        position: fixed !important; top: 25px !important; right: 380px !important;
         animation: candle-pulse 0.8s ease-in-out infinite alternate !important;
         padding: 0 !important; min-width: 0 !important; display: block !important;
         box-shadow: none !important;
