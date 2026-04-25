@@ -8,23 +8,6 @@ from io import BytesIO
 from datetime import datetime
 from plotly.subplots import make_subplots
 import plotly.express as px
-# Setup custom session for yfinance to bypass rate limits
-yf_session = requests.Session()
-yf_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-})
-
-_orig_ticker = yf.Ticker
-def _patched_ticker(ticker, session=None, **kwargs):
-    return _orig_ticker(ticker, session=yf_session, **kwargs)
-yf.Ticker = _patched_ticker
-
-_orig_download = yf.download
-def _patched_download(tickers, *args, **kwargs):
-    kwargs['session'] = yf_session
-    return _orig_download(tickers, *args, **kwargs)
-yf.download = _patched_download
-
 # ── Config ──
 st.set_page_config(page_title="ValuationPro", page_icon="📊", layout="wide")
 
@@ -209,7 +192,7 @@ def fmt_big(n):
     return f"{sign}{a:,.0f}"
 
 @st.cache_data(ttl=3600)
-def get_risk_free_rate():
+def get_risk_free_rate_v2():
     try:
         tnx = yf.Ticker("^TNX")
         rate = tnx.fast_info.last_price
@@ -220,7 +203,7 @@ def get_risk_free_rate():
     return 0.043
 
 @st.cache_data(ttl=600)
-def get_market_status_v2():
+def get_market_status_v3():
     status = {}
     for country, data in MARKETS_BY_COUNTRY.items():
         if "index" in data:
@@ -288,7 +271,7 @@ if not ticker:
         </div>
     """, unsafe_allow_html=True)
     
-    market_status = get_market_status_v2()
+    market_status = get_market_status_v3()
     
     lats = []
     lons = []
@@ -465,7 +448,7 @@ if not ticker:
 
 # ── Load Data ──
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_data(t, per, intv):
+def fetch_data_v3(t, per, intv):
     stock = yf.Ticker(t)
     inf = stock.info
     if not inf or inf.get("regularMarketPrice") is None:
@@ -486,7 +469,7 @@ def fetch_data(t, per, intv):
 
 with st.spinner(f"Cargando datos de **{ticker}**..."):
     try:
-        data_cache, err = fetch_data(ticker, chart_period, chart_interval)
+        data_cache, err = fetch_data_v3(ticker, chart_period, chart_interval)
         if err:
             st.error(err)
             st.stop()
@@ -806,7 +789,7 @@ with tab_dcf:
     else:
         calc_growth = 0.08
 
-    risk_free = get_risk_free_rate()
+    risk_free = get_risk_free_rate_v2()
     market_prem = 0.055
     ke = risk_free + beta * market_prem
     total_debt = 0
