@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+import requests
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
@@ -7,6 +8,22 @@ from io import BytesIO
 from datetime import datetime
 from plotly.subplots import make_subplots
 import plotly.express as px
+# Setup custom session for yfinance to bypass rate limits
+yf_session = requests.Session()
+yf_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+
+_orig_ticker = yf.Ticker
+def _patched_ticker(ticker, session=None, **kwargs):
+    return _orig_ticker(ticker, session=yf_session, **kwargs)
+yf.Ticker = _patched_ticker
+
+_orig_download = yf.download
+def _patched_download(tickers, *args, **kwargs):
+    kwargs['session'] = yf_session
+    return _orig_download(tickers, *args, **kwargs)
+yf.download = _patched_download
 
 # ── Config ──
 st.set_page_config(page_title="ValuationPro", page_icon="📊", layout="wide")
