@@ -326,20 +326,27 @@ def get_risk_free_rate_v2():
 @st.cache_data(ttl=600)
 def get_market_status_v3():
     status = {}
-    for country, data in MARKETS_BY_COUNTRY.items():
-        if "index" in data:
-            try:
-                tk = yf.Ticker(data["index"])
-                h = tk.history(period="5d")
-                if len(h) >= 2:
-                    price = float(h['Close'].iloc[-1])
-                    prev = float(h['Close'].iloc[-2])
-                    pct = (price - prev) / prev
-                    status[country] = pct
-                else:
-                    status[country] = 0.0
-            except:
-                status[country] = 0.0
+    indices_map = {data["index"]: country for country, data in MARKETS_BY_COUNTRY.items() if "index" in data}
+    indices = list(indices_map.keys())
+    if indices:
+        try:
+            h = yf.download(indices, period="5d", progress=False)
+            if 'Close' in h:
+                closes = h['Close']
+                for idx_ticker, country in indices_map.items():
+                    try:
+                        col = closes[idx_ticker].dropna() if isinstance(closes, pd.DataFrame) else closes.dropna()
+                        if len(col) >= 2:
+                            price = float(col.iloc[-1])
+                            prev = float(col.iloc[-2])
+                            status[country] = (price - prev) / prev
+                        else: status[country] = 0.0
+                    except: status[country] = 0.0
+        except: pass
+    
+    # Rellenar con 0 si algo falló
+    for c in MARKETS_BY_COUNTRY.keys():
+        if c not in status: status[c] = 0.0
     return status
 
 # ── Sidebar ──
@@ -414,8 +421,15 @@ if not ticker:
         lons.append(data["lon"])
         pct = market_status.get(country, 0)
         sign = "+" if pct >= 0 else ""
-        texts.append(f"{country}<br>{sign}{pct*100:.2f}%")
-        colors.append(color_up if pct >= 0 else color_down)
+        idx_name = data.get("index", "N/A")
+        texts.append(f"<b>{country}</b><br>Índice: {idx_name}<br>Cambio: {sign}{pct*100:.2f}%")
+        # Gradient intensity: stronger color for bigger moves
+        intensity = min(abs(pct) * 30, 1.0)  # Scale: 3.3% move = full intensity
+        intensity = max(intensity, 0.25)  # Minimum visibility
+        if pct >= 0:
+            colors.append(f"rgba(0, 200, 83, {intensity})")
+        else:
+            colors.append(f"rgba(255, 61, 0, {intensity})")
         
     fig_globe = go.Figure()
     
@@ -423,9 +437,10 @@ if not ticker:
     fig_globe.add_trace(go.Choropleth(
         locations=[d["iso_alpha"] for d in MARKETS_BY_COUNTRY.values()],
         z=[1]*len(MARKETS_BY_COUNTRY),
-        colorscale=[[0, "rgba(128,128,128,0.1)"], [1, "rgba(128,128,128,0.1)"]],
+        colorscale=[[0, "rgba(20,20,30,0.9)"], [1, "rgba(20,20,30,0.9)"]],
         showscale=False,
-        marker_line_width=0,
+        marker_line_width=0.5,
+        marker_line_color="rgba(212,175,55,0.3)",
         hoverinfo='skip'
     ))
     
@@ -433,7 +448,7 @@ if not ticker:
     fig_globe.add_trace(go.Scattergeo(
         lat=lats, lon=lons, text=texts,
         mode="markers",
-        marker=dict(size=25, color=colors, opacity=0.15),
+        marker=dict(size=30, color=colors, opacity=0.2),
         hoverinfo="skip",
         name="Halo"
     ))
@@ -442,7 +457,7 @@ if not ticker:
     fig_globe.add_trace(go.Scattergeo(
         lat=lats, lon=lons, text=texts,
         mode="markers",
-        marker=dict(size=8, color=colors, line=dict(width=1.5, color="rgba(255,255,255,0.9)")),
+        marker=dict(size=9, color=colors, line=dict(width=1.5, color="rgba(255,255,255,0.9)")),
         hoverinfo="text",
         name="Markets"
     ))
@@ -466,12 +481,12 @@ if not ticker:
 
     fig_globe.update_geos(
         projection_type="orthographic",
-        showcoastlines=True, coastlinecolor="rgba(255, 220, 100, 0.9)", coastlinewidth=2,
-        showland=True, landcolor="rgba(0,0,0,0)",
-        showocean=True, oceancolor="rgba(0,0,0,0)",
-        showcountries=False,
-        lonaxis=dict(showgrid=True, gridcolor="rgba(255, 220, 100, 0.25)", gridwidth=1.5, dtick=15),
-        lataxis=dict(showgrid=True, gridcolor="rgba(255, 220, 100, 0.25)", gridwidth=1.5, dtick=15),
+        showcoastlines=True, coastlinecolor="rgba(212, 175, 55, 0.8)", coastlinewidth=1.5,
+        showland=True, landcolor="rgba(10,11,16,0.95)",
+        showocean=True, oceancolor="rgba(5,5,10,0.98)",
+        showcountries=True, countrycolor="rgba(212,175,55,0.2)", countrywidth=0.5,
+        lonaxis=dict(showgrid=True, gridcolor="rgba(212, 175, 55, 0.12)", gridwidth=1, dtick=15),
+        lataxis=dict(showgrid=True, gridcolor="rgba(212, 175, 55, 0.12)", gridwidth=1, dtick=15),
         bgcolor="rgba(0,0,0,0)",
         center=dict(lat=center_lat, lon=center_lon),
         projection_rotation=dict(lon=center_lon, lat=center_lat, roll=0)
@@ -579,7 +594,7 @@ if not ticker:
 
 # ── Load Data ──
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_data_v3(t, per, intv):
+def fetch_data_v4(t, per, intv):
     # 1. Histórico mediante yf.download (Mucho más resistente a baneos en la nube)
     h = pd.DataFrame()
     try:
@@ -638,11 +653,55 @@ def fetch_data_v3(t, per, intv):
     try: cf = stock.cashflow
     except: pass
     
-    return {"info": inf, "income": inc if inc is not None else pd.DataFrame(), "balance": bal if bal is not None else pd.DataFrame(), "cashflow": cf if cf is not None else pd.DataFrame(), "hist": h}, None
+    inst, insd = pd.DataFrame(), pd.DataFrame()
+    try: inst = stock.institutional_holders
+    except: pass
+    try: insd = stock.insider_transactions
+    except: pass
+    
+    # 6. Noticias
+    news_list = []
+    try:
+        raw_news = stock.news
+        if raw_news:
+            for item in raw_news[:8]:
+                # Formato antiguo (plano)
+                if "title" in item:
+                    news_list.append({
+                        "title": str(item.get("title", "")),
+                        "publisher": str(item.get("publisher", "Yahoo Finance")),
+                        "link": str(item.get("link", "")),
+                        "time": int(item.get("providerPublishTime", 0))
+                    })
+                # Formato nuevo (anidado)
+                elif "content" in item:
+                    content = item.get("content", {})
+                    provider = item.get("provider", {})
+                    
+                    link_info = item.get("clickThroughUrl") or item.get("canonicalUrl") or {}
+                    link = link_info.get("url") or content.get("previewUrl", "#")
+                    
+                    pub_str = content.get("pubDate", "")
+                    pub_time = 0
+                    if pub_str:
+                        try: pub_time = int(datetime.strptime(pub_str.replace("Z", "UTC"), "%Y-%m-%dT%H:%M:%S%Z").timestamp())
+                        except:
+                            try: pub_time = int(datetime.strptime(pub_str[:19], "%Y-%m-%dT%H:%M:%S").timestamp())
+                            except: pass
+                            
+                    news_list.append({
+                        "title": str(content.get("title", "Sin Título")),
+                        "publisher": str(provider.get("displayName", "Yahoo Finance")),
+                        "link": str(link),
+                        "time": pub_time
+                    })
+    except: pass
+    
+    return {"info": inf, "income": inc if inc is not None else pd.DataFrame(), "balance": bal if bal is not None else pd.DataFrame(), "cashflow": cf if cf is not None else pd.DataFrame(), "hist": h, "news": news_list, "inst": inst if inst is not None else pd.DataFrame(), "insd": insd if insd is not None else pd.DataFrame()}, None
 
 with st.spinner(f"Cargando datos de **{ticker}**..."):
     try:
-        data_cache, err = fetch_data_v3(ticker, chart_period, chart_interval)
+        data_cache, err = fetch_data_v4(ticker, chart_period, chart_interval)
         if err:
             st.error(err)
             st.stop()
@@ -652,6 +711,9 @@ with st.spinner(f"Cargando datos de **{ticker}**..."):
         balance = data_cache["balance"]
         cashflow = data_cache["cashflow"]
         hist = data_cache["hist"]
+        news_data = data_cache.get("news", [])
+        inst_data = data_cache.get("inst", pd.DataFrame())
+        insd_data = data_cache.get("insd", pd.DataFrame())
     except Exception as e:
         st.error(f"Error al cargar datos: {e}")
         st.stop()
@@ -700,18 +762,23 @@ st.markdown(f"""
     <div style="margin-bottom: 30px;">
         <span class='big-price'>{sym}{price:,.2f}</span>
         <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Rentabilidad x Dividendo: <b>{div_str}</b></span>
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 Salud Financiera: <b>{debt_str}</b></span>
+        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Dividendo: <b>{div_str}</b></span>
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>
+            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📊 Cap: <b>{fmt_big(mkt_cap)}</b></span>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-st.caption(f"{sector} · {industry} · {country} · Cap: {fmt_big(mkt_cap)}")
+# ── Quick PER badge for tab label ──
+_per_val = mkt_cap / (income.iloc[:, 0].get("Net Income", 0) or 1) if not income.empty else 0
+_per_badge = f" 🟢" if 0 < _per_val < 20 else (f" 🔴" if _per_val > 35 else "")
 
 # ── Tabs ──
-tab_chart, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port = st.tabs([
-    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", "💰 Centro de Valoración", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera"
+tab_chart, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port, tab_news, tab_inst = st.tabs([
+    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", f"💰 Valoración{_per_badge}", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera", "📰 Noticias", "🏦 Institucional"
 ])
 
 # ── Tab 1: Chart ──
@@ -1006,6 +1073,7 @@ with tab_val:
     kd = (interest_exp / total_debt) if total_debt > 0 and interest_exp > 0 else 0.05
     kd = min(max(kd, 0.02), 0.15)
     calc_wacc = (equity_val / total_cap) * ke + (total_debt / total_cap) * kd * (1 - tax_rate) if total_cap > 0 else 0.10
+    calc_wacc = max(calc_wacc, 0.08) # Tope conservador: El dinero nunca es "gratis", WACC mínimo del 8%
     
     cash = 0
     if not balance.empty:
@@ -1020,16 +1088,16 @@ with tab_val:
         fcfs_pos = [f for f in fcf_row if f and f > 0]
         last_fcf = fcfs_pos[0] if fcfs_pos else 0
         if len(fcfs_pos) >= 2:
-            calc_growth = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.25))
+            calc_growth = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.15)) # Tope estricto del 15% al crecimiento
         else:
             calc_growth = 0.08
 
-        calc_terminal_g = 0.025
+        calc_terminal_g = 0.02 # Crecimiento terminal conservador alineado a la inflación global
 
         col_w, col_g, col_tg = st.columns(3)
-        user_wacc = col_w.slider("WACC (%)", min_value=2.0, max_value=25.0, value=float(calc_wacc*100), step=0.1, help="Coste Promedio Ponderado de Capital.") / 100.0
-        user_growth = col_g.slider("Crecimiento Corto Plazo (%)", min_value=-15.0, max_value=50.0, value=float(calc_growth*100), step=0.5) / 100.0
-        user_term_g = col_tg.slider("Crecimiento Terminal (%)", min_value=0.0, max_value=6.0, value=float(calc_terminal_g*100), step=0.1) / 100.0
+        user_wacc = col_w.slider("WACC (%)", min_value=5.0, max_value=25.0, value=float(calc_wacc*100), step=0.1, help="Coste Promedio Ponderado de Capital.") / 100.0
+        user_growth = col_g.slider("Crecimiento Corto Plazo (%)", min_value=-15.0, max_value=30.0, value=float(calc_growth*100), step=0.5) / 100.0
+        user_term_g = col_tg.slider("Crecimiento Terminal (%)", min_value=0.0, max_value=4.0, value=float(calc_terminal_g*100), step=0.1) / 100.0
 
         wacc, growth, terminal_g = user_wacc, user_growth, user_term_g
         proj_years = 5
@@ -1053,6 +1121,28 @@ with tab_val:
         c2.metric("Deuda Neta", fmt_big(net_debt), help="Deuda total menos caja.")
         c3.metric("Equity Value", fmt_big(equity_value), help="Valor para los accionistas.")
         c4.metric("Valor Justo (DCF)", f"{sym}{dcf_price:,.2f}", help="Precio intrínseco por acción.")
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = float(price),
+            delta = {'reference': dcf_price, 'position': "top", 'increasing': {'color': "rgba(255, 61, 0, 0.8)"}, 'decreasing': {'color': "rgba(0, 200, 83, 0.8)"}},
+            title = {'text': f"Cotización vs Valor Justo (DCF: {sym}{dcf_price:,.2f})", 'font': {'size': 16, 'color': '#d4af37'}},
+            gauge = {
+                'axis': {'range': [None, max(float(price), dcf_price)*1.5], 'tickwidth': 1, 'tickcolor': "white"},
+                'bar': {'color': "#d4af37"},
+                'bgcolor': "rgba(0,0,0,0)",
+                'borderwidth': 1,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, dcf_price*0.9], 'color': 'rgba(0, 200, 83, 0.15)'},
+                    {'range': [dcf_price*0.9, dcf_price*1.1], 'color': 'rgba(128, 128, 128, 0.1)'},
+                    {'range': [dcf_price*1.1, max(float(price), dcf_price)*1.5], 'color': 'rgba(255, 61, 0, 0.15)'}],
+                'threshold': {
+                    'line': {'color': "white", 'width': 3},
+                    'thickness': 0.75,
+                    'value': dcf_price}}))
+        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+        st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
         
         st.divider()
         st.markdown("#### Matriz de Sensibilidad DCF")
@@ -1080,25 +1170,47 @@ with tab_val:
     elif val_method == "Fórmula de Graham":
         eps = net_income / shares_out if shares_out and net_income else 0
         if eps > 0:
-            st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-bottom: 20px;'>Fórmula revisada de Benjamin Graham para valorar empresas estables: <b>V = (EPS × (8.5 + 2g) × 4.4) / Y</b></p>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-bottom: 20px;'>Fórmula modernizada y ultra-conservadora de Benjamin Graham: <b>V = (EPS × (8.5 + 1g) × 4.4) / Y</b></p>", unsafe_allow_html=True)
             col_g_eps, col_g_g, col_g_y = st.columns(3)
             
             # Estimate historical growth for Graham
             fcfs_pos = [f for f in fcf_row if f and f > 0]
             if len(fcfs_pos) >= 2:
-                calc_g_graham = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.25))
+                calc_g_graham = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.15)) # Tope 15%
             else:
                 calc_g_graham = 0.05
                 
             g_g = col_g_g.slider("Crecimiento a 5 años (g) [%]", 0.0, 30.0, float(calc_g_graham*100))
             g_y = col_g_y.slider("Rendimiento Bono Corporativo AAA (Y) [%]", 1.0, 10.0, float(risk_free*100 + 1.0))
             
-            graham_val = (eps * (8.5 + 2 * (g_g)) * 4.4) / g_y
+            graham_val = (eps * (8.5 + 1.0 * (g_g)) * 4.4) / g_y
             upside_g = (graham_val - price) / price if price else 0
             
             c_g1, c_g2 = st.columns(2)
             c_g1.metric("Valor Intrínseco de Graham", f"{sym}{graham_val:,.2f}")
             c_g2.metric("Potencial / Margen Seguridad", f"{upside_g*100:.1f}%")
+            
+            fig_g_gauge = go.Figure(go.Indicator(
+                mode = "gauge+number+delta",
+                value = float(price),
+                delta = {'reference': graham_val, 'position': "top", 'increasing': {'color': "rgba(255, 61, 0, 0.8)"}, 'decreasing': {'color': "rgba(0, 200, 83, 0.8)"}},
+                title = {'text': f"Cotización vs Valor Graham ({sym}{graham_val:,.2f})", 'font': {'size': 16, 'color': '#d4af37'}},
+                gauge = {
+                    'axis': {'range': [None, max(float(price), graham_val)*1.5], 'tickwidth': 1, 'tickcolor': "white"},
+                    'bar': {'color': "#d4af37"},
+                    'bgcolor': "rgba(0,0,0,0)",
+                    'borderwidth': 1,
+                    'bordercolor': "gray",
+                    'steps': [
+                        {'range': [0, graham_val*0.9], 'color': 'rgba(0, 200, 83, 0.15)'},
+                        {'range': [graham_val*0.9, graham_val*1.1], 'color': 'rgba(128, 128, 128, 0.1)'},
+                        {'range': [graham_val*1.1, max(float(price), graham_val)*1.5], 'color': 'rgba(255, 61, 0, 0.15)'}],
+                    'threshold': {
+                        'line': {'color': "white", 'width': 3},
+                        'thickness': 0.75,
+                        'value': graham_val}}))
+            fig_g_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=50, b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+            st.plotly_chart(fig_g_gauge, use_container_width=True, config={'displayModeBar': False})
             
             # Defensive Graham Number
             bvps = total_equity_bs / shares_out if shares_out else 0
@@ -1216,24 +1328,144 @@ with tab_val:
 
 # ── Tab 6: Tesis de Inversión ──
 with tab_thesis:
-    st.markdown("### 📝 Generador de Tesis Fundamental")
-    st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Análisis cualitativo a medio/largo plazo basado en fosos defensivos y margen de seguridad.</p>", unsafe_allow_html=True)
+    st.markdown("### 📝 Informe Institucional de Inversión")
+    st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Análisis cuantitativo y cualitativo estilo Bloomberg Terminal. Incluye Piotroski F-Score, fosos defensivos y veredicto final.</p>", unsafe_allow_html=True)
     
-    if st.button("Generar Tesis Institucional Automática", use_container_width=True, key="btn_thesis_main"):
+    if st.button("Generar Informe Institucional Completo", use_container_width=True, key="btn_thesis_main"):
         st.session_state[f"thesis_{ticker}"] = True
         
     if st.session_state.get(f"thesis_{ticker}", False):
         st.markdown("<br>", unsafe_allow_html=True)
-        # 1. Moat
+        
+        # ── PIOTROSKI F-SCORE (0-9) ──
+        piotroski = 0
+        piotroski_details = []
+        
+        # Extraer datos multi-año si están disponibles
+        ni_curr = income.iloc[:, 0].get("Net Income", 0) if not income.empty and len(income.columns) > 0 else 0
+        ni_prev = income.iloc[:, 1].get("Net Income", 0) if not income.empty and len(income.columns) > 1 else 0
+        rev_curr = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty and len(income.columns) > 0 else 0
+        rev_prev = income.iloc[:, 1].get("Total Revenue", 0) if not income.empty and len(income.columns) > 1 else 0
+        
+        ta_curr, ta_prev = 1, 1
+        ltd_curr, ltd_prev = 0, 0
+        ca_curr, ca_prev, cl_curr, cl_prev = 0, 0, 0, 0
+        shares_curr, shares_prev = shares_out or 1, shares_out or 1
+        
+        if not balance.empty:
+            for k in ["Total Assets"]:
+                if k in balance.index:
+                    ta_curr = balance.iloc[:, 0].get(k, 1) or 1
+                    ta_prev = balance.iloc[:, 1].get(k, ta_curr) if len(balance.columns) > 1 else ta_curr
+            for k in ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"]:
+                if k in balance.index:
+                    ltd_curr = balance.iloc[:, 0].get(k, 0) or 0
+                    ltd_prev = balance.iloc[:, 1].get(k, ltd_curr) if len(balance.columns) > 1 else ltd_curr
+                    break
+            for k in ["Current Assets"]:
+                if k in balance.index:
+                    ca_curr = balance.iloc[:, 0].get(k, 0) or 0
+                    ca_prev = balance.iloc[:, 1].get(k, ca_curr) if len(balance.columns) > 1 else ca_curr
+            for k in ["Current Liabilities"]:
+                if k in balance.index:
+                    cl_curr = balance.iloc[:, 0].get(k, 1) or 1
+                    cl_prev = balance.iloc[:, 1].get(k, cl_curr) if len(balance.columns) > 1 else cl_curr
+        
+        cfo_curr = 0
+        if not cashflow.empty:
+            for k in ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"]:
+                if k in cashflow.index:
+                    cfo_curr = cashflow.iloc[:, 0].get(k, 0) or 0
+                    break
+        
+        # 1. ROA positivo
+        roa = ni_curr / ta_curr if ta_curr else 0
+        if roa > 0: piotroski += 1; piotroski_details.append(("ROA positivo", True, f"ROA = {roa*100:.2f}%"))
+        else: piotroski_details.append(("ROA positivo", False, f"ROA = {roa*100:.2f}%"))
+        
+        # 2. CFO positivo
+        if cfo_curr > 0: piotroski += 1; piotroski_details.append(("Cash Flow Operativo positivo", True, f"CFO = {cfo_curr:,.0f}"))
+        else: piotroski_details.append(("Cash Flow Operativo positivo", False, f"CFO = {cfo_curr:,.0f}"))
+        
+        # 3. ROA creciente
+        roa_prev = ni_prev / ta_prev if ta_prev else 0
+        if roa > roa_prev: piotroski += 1; piotroski_details.append(("ROA creciente vs año anterior", True, f"{roa_prev*100:.2f}% → {roa*100:.2f}%"))
+        else: piotroski_details.append(("ROA creciente vs año anterior", False, f"{roa_prev*100:.2f}% → {roa*100:.2f}%"))
+        
+        # 4. Calidad de beneficios (CFO > Net Income)
+        if cfo_curr > ni_curr: piotroski += 1; piotroski_details.append(("Calidad de beneficios (CFO > NI)", True, "Los beneficios son reales, no solo contables"))
+        else: piotroski_details.append(("Calidad de beneficios (CFO > NI)", False, "Los beneficios podrían ser artificiales"))
+        
+        # 5. Deuda a largo plazo decreciente
+        if ltd_curr < ltd_prev: piotroski += 1; piotroski_details.append(("Deuda L/P decreciente", True, f"{ltd_prev:,.0f} → {ltd_curr:,.0f}"))
+        else: piotroski_details.append(("Deuda L/P decreciente", False, f"{ltd_prev:,.0f} → {ltd_curr:,.0f}"))
+        
+        # 6. Liquidez (Current Ratio) creciente
+        cr_curr = ca_curr / cl_curr if cl_curr else 0
+        cr_prev = ca_prev / cl_prev if cl_prev else 0
+        if cr_curr > cr_prev: piotroski += 1; piotroski_details.append(("Liquidez (Current Ratio) creciente", True, f"{cr_prev:.2f}x → {cr_curr:.2f}x"))
+        else: piotroski_details.append(("Liquidez (Current Ratio) creciente", False, f"{cr_prev:.2f}x → {cr_curr:.2f}x"))
+        
+        # 7. No dilución de acciones
+        if shares_curr <= shares_prev: piotroski += 1; piotroski_details.append(("Sin dilución de accionistas", True, "La empresa no emitió acciones nuevas"))
+        else: piotroski_details.append(("Sin dilución de accionistas", False, "La empresa diluyó a los accionistas"))
+        
+        # 8. Margen bruto creciente
+        gp_curr = income.iloc[:, 0].get("Gross Profit", 0) if not income.empty and len(income.columns) > 0 else 0
+        gp_prev = income.iloc[:, 1].get("Gross Profit", 0) if not income.empty and len(income.columns) > 1 else 0
+        gm_curr = (gp_curr or 0) / rev_curr if rev_curr else 0
+        gm_prev = (gp_prev or 0) / rev_prev if rev_prev else 0
+        if gm_curr > gm_prev: piotroski += 1; piotroski_details.append(("Margen bruto creciente", True, f"{gm_prev*100:.1f}% → {gm_curr*100:.1f}%"))
+        else: piotroski_details.append(("Margen bruto creciente", False, f"{gm_prev*100:.1f}% → {gm_curr*100:.1f}%"))
+        
+        # 9. Rotación de activos creciente
+        at_curr = rev_curr / ta_curr if ta_curr else 0
+        at_prev = (rev_prev or 0) / ta_prev if ta_prev else 0
+        if at_curr > at_prev: piotroski += 1; piotroski_details.append(("Rotación de activos creciente", True, f"{at_prev:.2f}x → {at_curr:.2f}x"))
+        else: piotroski_details.append(("Rotación de activos creciente", False, f"{at_prev:.2f}x → {at_curr:.2f}x"))
+        
+        # ── Visualización Piotroski ──
+        if piotroski >= 7: pio_color, pio_label = "#00C853", "SALUD EXCELENTE"
+        elif piotroski >= 4: pio_color, pio_label = "#d4af37", "SALUD ACEPTABLE"
+        else: pio_color, pio_label = "#FF3D00", "RIESGO DE DETERIORO"
+        
+        st.markdown(f"""
+        <div style='background: rgba(128,128,128,0.05); border: 1px solid {pio_color}40; border-radius: 12px; padding: 20px; margin-bottom: 20px;'>
+            <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;'>
+                <div>
+                    <h4 style='margin: 0; color: {pio_color};'>📊 Piotroski F-Score: {piotroski}/9</h4>
+                    <p style='margin: 2px 0 0 0; opacity: 0.7; font-size: 0.85rem;'>Métrica institucional de salud financiera (usado por Hedge Funds para detectar quiebras)</p>
+                </div>
+                <div style='background: {pio_color}20; border: 1px solid {pio_color}; border-radius: 8px; padding: 6px 16px;'>
+                    <span style='color: {pio_color}; font-weight: 700; font-size: 0.9rem;'>{pio_label}</span>
+                </div>
+            </div>
+            <div style='background: rgba(255,255,255,0.05); border-radius: 8px; height: 14px; overflow: hidden;'>
+                <div style='background: linear-gradient(90deg, {pio_color}, {pio_color}80); height: 100%; width: {piotroski/9*100:.0f}%; border-radius: 8px; transition: width 0.5s;'></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("📋 Desglose de los 9 criterios Piotroski"):
+            for name, passed, detail in piotroski_details:
+                icon = "✅" if passed else "❌"
+                st.markdown(f"{icon} **{name}** — _{detail}_")
+        
+        st.divider()
+        
+        # ── SECCIÓN 1: FOSO DEFENSIVO ──
         net_mgn = (net_income / revenue) if revenue and revenue > 0 else 0
         if net_mgn > 0.15:
-            moat_text = f"🛡️ **Foso Defensivo (Moat):** Fuerte ventaja competitiva. Un margen neto del {net_mgn*100:.1f}% demuestra poder de fijación de precios (Pricing Power). La empresa domina su sector y puede trasladar la inflación al consumidor."
+            moat_text = f"Fuerte ventaja competitiva. Un margen neto del {net_mgn*100:.1f}% demuestra poder de fijación de precios (Pricing Power). La empresa domina su sector y puede trasladar la inflación al consumidor."
+            moat_icon, moat_color = "🟢", "#00C853"
         elif net_mgn > 0.05:
-            moat_text = f"🛡️ **Foso Defensivo (Moat):** Estándar. Con márgenes del {net_mgn*100:.1f}%, es un negocio estable pero vulnerable a presiones de costes o competidores agresivos."
+            moat_text = f"Estándar. Con márgenes del {net_mgn*100:.1f}%, es un negocio estable pero vulnerable a presiones de costes o competidores agresivos."
+            moat_icon, moat_color = "🟡", "#d4af37"
         else:
-            moat_text = f"🛡️ **Foso Defensivo (Moat):** Débil o inexistente. Operar con márgenes tan ajustados ({net_mgn*100:.1f}%) exige vender un volumen masivo para sobrevivir."
+            moat_text = f"Débil o inexistente. Operar con márgenes tan ajustados ({net_mgn*100:.1f}%) exige vender un volumen masivo para sobrevivir."
+            moat_icon, moat_color = "🔴", "#FF3D00"
             
-        # 2. Risk / Valuation
+        # ── SECCIÓN 2: MARGEN DE SEGURIDAD ──
         e_net_income = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
         e_equity = mkt_cap
         if not balance.empty:
@@ -1246,13 +1478,16 @@ with tab_thesis:
 
         pe = mkt_cap / net_income if net_income and net_income > 0 else 999
         if thesis_upside > 0.20:
-            val_txt = f"⚖️ **Margen de Seguridad:** Excelente. El mercado está deprimiendo la acción irracionalmente. Cotizando a un PER de {pe:.1f}x y con un descuento del {thesis_upside*100:.1f}%, el riesgo de pérdida a largo plazo es bajo."
+            val_txt = f"Excelente. El mercado está deprimiendo la acción irracionalmente. Cotizando a un PER de {pe:.1f}x y con un descuento del {thesis_upside*100:.1f}%, el riesgo de pérdida a largo plazo es bajo."
+            val_icon, val_color = "🟢", "#00C853"
         elif thesis_upside > 0:
-            val_txt = f"⚖️ **Margen de Seguridad:** Aceptable. La acción cotiza por debajo de su valor intrínseco teórico (según Graham), pero no hay un gran margen de error."
+            val_txt = f"Aceptable. La acción cotiza por debajo de su valor intrínseco teórico (según Graham), pero no hay un gran margen de error."
+            val_icon, val_color = "🟡", "#d4af37"
         else:
-            val_txt = f"⚖️ **Margen de Seguridad:** Inexistente. El mercado asume la perfección pagando un PER de {pe:.1f}x. Cualquier fallo en su plan de negocio futuro provocará una corrección severa."
+            val_txt = f"Inexistente. El mercado asume la perfección pagando un PER de {pe:.1f}x. Cualquier fallo en su plan de negocio futuro provocará una corrección severa."
+            val_icon, val_color = "🔴", "#FF3D00"
             
-        # 3. Long Term
+        # ── SECCIÓN 3: PERSPECTIVA A LARGO PLAZO ──
         cagr = 0
         if not income.empty and "Total Revenue" in income.index:
             revs = [v for v in income.loc["Total Revenue"].dropna().tolist() if v > 0][::-1]
@@ -1260,17 +1495,69 @@ with tab_thesis:
                 cagr = ((revs[-1] / revs[0]) ** (1 / (len(revs) - 1)) - 1) * 100
                 
         if cagr > 10:
-            lt_text = f"🚀 **Perspectiva a Largo Plazo:** Crecimiento estructural brillante ({cagr:.1f}% anual). Es una candidata perfecta para estrategia 'Buy & Hold' (Comprar y Olvidar) y dejar que el interés compuesto actúe."
+            lt_text = f"Crecimiento estructural brillante ({cagr:.1f}% CAGR). Candidata para estrategia 'Buy & Hold' a largo plazo."
+            lt_icon, lt_color = "🟢", "#00C853"
         elif cagr > 0:
-            lt_text = f"🐢 **Perspectiva a Largo Plazo:** Negocio maduro tipo 'Cash Cow' ({cagr:.1f}% anual). Ideal para un perfil defensivo que busque dividendos, pero no esperes que duplique su tamaño pronto."
+            lt_text = f"Negocio maduro tipo 'Cash Cow' ({cagr:.1f}% CAGR). Ideal para perfiles defensivos que busquen dividendos estables."
+            lt_icon, lt_color = "🟡", "#d4af37"
         else:
-            lt_text = f"⚠️ **Perspectiva a Largo Plazo:** Contracción. Los ingresos llevan años cayendo. Más que una inversión a largo plazo, esto es una 'Value Trap' (trampa de valor) o un juego especulativo táctico."
-            
-        st.markdown(f"<div class='glow-hover' style='background: rgba(128,128,128,0.05); padding: 25px; border-radius: 8px; font-size: 1.05rem; line-height: 1.6; border: 1px solid rgba(212,175,55,0.3);'>{moat_text}<br><br>{val_txt}<br><br>{lt_text}</div>", unsafe_allow_html=True)
+            lt_text = f"Contracción. Los ingresos llevan años cayendo. Posible 'Value Trap' o juego especulativo táctico."
+            lt_icon, lt_color = "🔴", "#FF3D00"
+
+        # ── RENDERIZADO TIPO BLOOMBERG ──
+        st.markdown(f"""
+        <div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;'>
+            <div class='glow-hover' style='background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; border-left: 4px solid {moat_color};'>
+                <h5 style='color: {moat_color}; margin: 0 0 8px 0;'>🛡️ Foso Defensivo</h5>
+                <p style='font-size: 0.9rem; line-height: 1.5; margin: 0;'>{moat_text}</p>
+            </div>
+            <div class='glow-hover' style='background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; border-left: 4px solid {val_color};'>
+                <h5 style='color: {val_color}; margin: 0 0 8px 0;'>⚖️ Margen de Seguridad</h5>
+                <p style='font-size: 0.9rem; line-height: 1.5; margin: 0;'>{val_txt}</p>
+            </div>
+            <div class='glow-hover' style='background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; border-left: 4px solid {lt_color};'>
+                <h5 style='color: {lt_color}; margin: 0 0 8px 0;'>🚀 Perspectiva L/P</h5>
+                <p style='font-size: 0.9rem; line-height: 1.5; margin: 0;'>{lt_text}</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # ── VEREDICTO FINAL ──
+        total_score = piotroski
+        if thesis_upside > 0.20: total_score += 2
+        elif thesis_upside > 0: total_score += 1
+        if cagr > 10: total_score += 2
+        elif cagr > 0: total_score += 1
+        
+        if total_score >= 10:
+            final_verdict = "COMPRA FUERTE"
+            final_color = "#00C853"
+            final_desc = "La empresa presenta una salud financiera excepcional, cotiza con descuento respecto a su valor intrínseco y tiene un crecimiento sólido. Reúne todas las condiciones para una inversión de alta convicción."
+        elif total_score >= 7:
+            final_verdict = "COMPRA MODERADA"
+            final_color = "#00C853"
+            final_desc = "Los fundamentales son sólidos y el precio es razonable. Es una buena inversión, aunque no está regalada. Considere un tamaño de posición moderado."
+        elif total_score >= 4:
+            final_verdict = "MANTENER / VIGILAR"
+            final_color = "#d4af37"
+            final_desc = "La empresa muestra señales mixtas. Los fundamentales no son lo suficientemente fuertes para justificar una compra agresiva, pero tampoco hay razones urgentes para vender."
+        else:
+            final_verdict = "EVITAR / VENDER"
+            final_color = "#FF3D00"
+            final_desc = "Múltiples señales de alarma detectadas. Los fundamentales se están deteriorando y el precio no compensa el riesgo asumido. Se recomienda evitar o reducir la exposición."
+        
+        st.markdown(f"""
+        <div class='glow-hover' style='background: {final_color}08; border: 2px solid {final_color}60; border-radius: 12px; padding: 24px; text-align: center;'>
+            <p style='font-size: 0.8rem; opacity: 0.6; margin: 0; letter-spacing: 2px;'>VEREDICTO INSTITUCIONAL DE Á.L.V.A.R.O.</p>
+            <h2 style='color: {final_color}; margin: 8px 0; font-size: 2rem;'>{final_verdict}</h2>
+            <p style='font-size: 0.95rem; margin: 0; max-width: 600px; margin: 0 auto; line-height: 1.5;'>{final_desc}</p>
+            <p style='font-size: 0.75rem; opacity: 0.4; margin: 12px 0 0 0;'>Score Combinado: {total_score}/13 (Piotroski {piotroski}/9 + Valoración + Crecimiento)</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ── Tab 7: Backtesting Á.L.V.A.R.O. ──
 with tab_backtest:
-    st.markdown("### 🤖 Motor de IA: Análisis Estratégico")
+    st.markdown("### 🤖 Motor de IA: Análisis Estratégico Multi-Modelo")
     
     st.markdown("#### 🎯 Veredicto Actual (HOY)")
     st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>¿Qué debes hacer AHORA MISMO según la estrategia matemática de Á.L.V.A.R.O?</p>", unsafe_allow_html=True)
@@ -1309,24 +1596,55 @@ with tab_backtest:
     
     st.divider()
     st.markdown("#### ⏳ Verificación Histórica (Últimos 5 Años)")
-    st.markdown("""
-    **¿Qué estamos simulando?**  
-    Simulamos que compraste ciegamente la acción cada vez que saltó la señal de sobreventa en el pasado, vendiendo exactamente **1 mes (20 sesiones) después**.  
-    *Ejecuta la prueba para ver si hacerle caso al veredicto de arriba tiene ventaja estadística real.*
-    """)
+    
+    bt_strategy = st.selectbox("Selecciona la estrategia a evaluar:", [
+        "RSI Sobreventa (< 30)",
+        "Cruce de Medias Móviles (SMA 50/200 — Golden Cross)",
+        "Rebote de Bandas de Bollinger",
+        "Cruce de MACD"
+    ], help="Cada estrategia utiliza un indicador técnico distinto para detectar puntos de entrada. Prueba varias y compáralas.")
+    
+    strategy_descriptions = {
+        "RSI Sobreventa (< 30)": "Compra cuando el RSI cruza por debajo de 30 (pánico vendedor). Estrategia clásica de reversión a la media.",
+        "Cruce de Medias Móviles (SMA 50/200 — Golden Cross)": "Compra cuando la media móvil de 50 días cruza por encima de la de 200 días (confirmación de tendencia alcista).",
+        "Rebote de Bandas de Bollinger": "Compra cuando el precio toca la Banda de Bollinger inferior (2 desviaciones estándar por debajo de la media de 20 días).",
+        "Cruce de MACD": "Compra cuando la línea MACD cruza por encima de la línea de señal (cambio de momentum de bajista a alcista)."
+    }
+    st.markdown(f"<p style='font-size:0.85rem; opacity:0.6;'>{strategy_descriptions[bt_strategy]}</p>", unsafe_allow_html=True)
     
     if st.button("🚀 Ejecutar Simulación IA", use_container_width=True):
         with st.spinner("Analizando miles de velas históricas..."):
             try:
                 bt_hist = yf.Ticker(ticker).history(period="5y")
                 if len(bt_hist) > 50:
-                    delta_bt = bt_hist['Close'].diff()
-                    gain_bt = (delta_bt.where(delta_bt > 0, 0)).rolling(14).mean()
-                    loss_bt = (-delta_bt.where(delta_bt < 0, 0)).rolling(14).mean()
-                    rs_bt = gain_bt / loss_bt
-                    bt_hist['RSI'] = 100 - (100 / (1 + rs_bt))
                     
-                    signals = (bt_hist['RSI'] < 30) & (bt_hist['RSI'].shift(1) >= 30)
+                    # ── Generar señales según estrategia elegida ──
+                    if bt_strategy == "RSI Sobreventa (< 30)":
+                        delta_bt = bt_hist['Close'].diff()
+                        gain_bt = (delta_bt.where(delta_bt > 0, 0)).rolling(14).mean()
+                        loss_bt = (-delta_bt.where(delta_bt < 0, 0)).rolling(14).mean()
+                        rs_bt = gain_bt / loss_bt
+                        bt_hist['RSI'] = 100 - (100 / (1 + rs_bt))
+                        signals = (bt_hist['RSI'] < 30) & (bt_hist['RSI'].shift(1) >= 30)
+                        
+                    elif bt_strategy == "Cruce de Medias Móviles (SMA 50/200 — Golden Cross)":
+                        bt_hist['SMA50'] = bt_hist['Close'].rolling(50).mean()
+                        bt_hist['SMA200'] = bt_hist['Close'].rolling(200).mean()
+                        signals = (bt_hist['SMA50'] > bt_hist['SMA200']) & (bt_hist['SMA50'].shift(1) <= bt_hist['SMA200'].shift(1))
+                        
+                    elif bt_strategy == "Rebote de Bandas de Bollinger":
+                        bt_hist['BB_mid'] = bt_hist['Close'].rolling(20).mean()
+                        bt_hist['BB_std'] = bt_hist['Close'].rolling(20).std()
+                        bt_hist['BB_low'] = bt_hist['BB_mid'] - (2 * bt_hist['BB_std'])
+                        signals = (bt_hist['Close'] <= bt_hist['BB_low']) & (bt_hist['Close'].shift(1) > bt_hist['BB_low'].shift(1))
+                        
+                    elif bt_strategy == "Cruce de MACD":
+                        ema12 = bt_hist['Close'].ewm(span=12, adjust=False).mean()
+                        ema26 = bt_hist['Close'].ewm(span=26, adjust=False).mean()
+                        bt_hist['MACD'] = ema12 - ema26
+                        bt_hist['MACD_signal'] = bt_hist['MACD'].ewm(span=9, adjust=False).mean()
+                        signals = (bt_hist['MACD'] > bt_hist['MACD_signal']) & (bt_hist['MACD'].shift(1) <= bt_hist['MACD_signal'].shift(1))
+                    
                     signal_dates = bt_hist[signals].index
                     
                     wins, losses = 0, 0
@@ -1376,19 +1694,19 @@ with tab_backtest:
                         
                         st.markdown(f"""
                         <div class="glow-hover" style="background: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.2); border-radius: 8px; padding: 20px;">
-                            <p style="font-size: 1.1rem; margin-bottom: 5px;">Si hubieras invertido ciegamente <b>1.000{sym} exactos</b> cada vez que Á.L.V.A.R.O. detectó esta alerta en los últimos 5 años (un total de {len(returns)} operaciones)...</p>
+                            <p style="font-size: 1.1rem; margin-bottom: 5px;">Si hubieras invertido ciegamente <b>1.000{sym} exactos</b> cada vez que esta estrategia detectó una señal en los últimos 5 años (un total de {len(returns)} operaciones)...</p>
                             <h2 style="color: {ganancia_color}; margin-top: 0;">Habrías generado {'+' if total_profit_usd>0 else ''}{total_profit_usd:,.2f}{sym} de beneficio neto.</h2>
                             <p style="opacity: 0.6; font-size: 0.85rem; margin-bottom: 0;">*Nota: Simulador bruto sin comisiones, asumiendo inversión lineal, compra perfecta tras la alerta y venta un mes después.</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        conclusion = f"**Conclusión del Algoritmo:** De las {len(returns)} veces que se activó la alerta extrema, ganaste dinero en {wins} ocasiones y perdiste en {losses}."
+                        conclusion = f"**Conclusión del Algoritmo:** De las {len(returns)} veces que se activó la señal, ganaste dinero en {wins} ocasiones y perdiste en {losses}."
                         if win_rate > 55:
                             st.info(f"{conclusion} **La estrategia muestra una clara ventaja estadística.**")
                         else:
                             st.warning(f"{conclusion} **La estrategia es muy arriesgada y equivale prácticamente a tirar una moneda al aire.**")
                     else:
-                        st.warning("No ha habido suficientes caídas extremas en los últimos 5 años para analizar esta señal.")
+                        st.warning("No ha habido suficientes señales de esta estrategia en los últimos 5 años para analizar.")
                 else:
                     st.error("No hay suficientes datos históricos para este activo.")
             except Exception as e:
@@ -1396,15 +1714,18 @@ with tab_backtest:
 
 # ── Tab 8: Monte Carlo Simulator ──
 with tab_mc:
-    st.markdown("### 🎲 Simulador de Riesgo Monte Carlo")
-    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Simulación estocástica de 1.000 escenarios futuros para calcular probabilidades reales de pérdida o ganancia en los próximos 12 meses basándose en volatilidad matemática pura.</p>", unsafe_allow_html=True)
+    st.markdown("### 🎲 Simulador de Riesgo Avanzado (Colas Pesadas)")
+    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Simulación estocástica de 1.000 escenarios futuros usando distribución t-Student para modelar Cisnes Negros (Crash/Pumps extremos).</p>", unsafe_allow_html=True)
     
     with st.expander("🎓 ¿Cómo funciona este simulador y por qué lo usan los bancos?"):
         st.markdown("""
         **La Bola de Cristal de Wall Street:** En lugar de adivinar si la acción va a subir o bajar, el método Monte Carlo acepta que el mercado es caótico. 
-        Lo que hace es medir exactamente cómo se ha movido esta acción en el pasado (su volatilidad media) y utiliza algoritmos de azar (movimiento browniano) para generar **1.000 futuros paralelos**. 
-        Al final, contamos en cuántos de esos futuros la acción terminó dando dinero y en cuántos se hundió. Esto te da una *probabilidad real matemática*, quitando las emociones humanas de en medio.
+        Lo que hace es medir exactamente cómo se ha movido esta acción en el pasado y genera **1.000 futuros paralelos**. 
+        **Novedad (Fat Tails):** Ahora usamos un modelo t-Student. En la vida real, el mercado no es una campana perfecta; a veces hay caídas de pánico (COVID) o burbujas. Este modelo inyecta esa posibilidad de eventos extremos, haciéndolo mucho más realista.
         """)
+        
+    st.markdown("#### 🎯 Calculadora de Objetivos")
+    target_mc = st.number_input(f"¿A qué precio te gustaría que llegase esta acción a final de año?", min_value=0.0, value=float(price)*1.2 if price else 100.0, step=1.0)
         
     if st.button("Ejecutar 1.000 Simulaciones Institucionales", use_container_width=True):
         if not hist.empty and len(hist) > 50:
@@ -1414,24 +1735,30 @@ with tab_mc:
             
             days = 252 # 1 trading year
             simulations = 1000
-            last_price = hist['Close'].iloc[-1]
+            last_price = float(hist['Close'].iloc[-1])
             
             paths = np.zeros((days, simulations))
             paths[0] = last_price
             
             # Progreso
-            with st.spinner("Generando 1.000 realidades alternativas..."):
+            with st.spinner("Generando 1.000 realidades alternativas con riesgo de Cisnes Negros..."):
+                # df=4 yields heavy tails (standard in finance). Divide by sqrt(2) to standardize std.
+                scale_factor = sigma / np.sqrt(2)
                 for t in range(1, days):
-                    rand_rets = np.random.normal(mu, sigma, simulations)
+                    rand_rets = (np.random.standard_t(df=4, size=simulations) * scale_factor) + mu
                     paths[t] = paths[t-1] * (1 + rand_rets)
                 
             final_prices = paths[-1]
             prob_gain = (final_prices > last_price).mean() * 100
             prob_loss_20 = (final_prices < (last_price * 0.80)).mean() * 100
+            prob_target = (final_prices >= target_mc).mean() * 100
             
             # Percentiles (Worst 5% and Best 5%)
             p5 = np.percentile(final_prices, 5)
             p95 = np.percentile(final_prices, 95)
+            
+            st.markdown(f"**Probabilidad de alcanzar {sym}{target_mc:,.2f}:** <span style='color:#d4af37; font-size:1.2rem; font-weight:bold;'>{prob_target:.1f}%</span>", unsafe_allow_html=True)
+            st.divider()
             
             c1, c2, c3 = st.columns(3)
             c1.metric("Prob. Ganancia (1 Año)", f"{prob_gain:.1f}%", help="Porcentaje de los 1.000 futuros en los que cerrarías el año con dinero extra.")
@@ -1443,13 +1770,21 @@ with tab_mc:
             c4.metric("Peor Escenario (Percentil 5)", f"{sym}{p5:.2f}", help="En el 95% de los escenarios, ganarás más dinero que esto. Es tu 'red de seguridad' pesimista.")
             c5.metric("Mejor Escenario (Percentil 95)", f"{sym}{p95:.2f}", help="En un escenario hiper-optimista (solo un 5% de probabilidad de ser mejor que esto), podrías ganar hasta aquí.")
             
-            fig_mc = go.Figure()
-            for i in range(50):
-                fig_mc.add_trace(go.Scatter(y=paths[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
+            c_g1, c_g2 = st.columns([2, 1])
+            with c_g1:
+                fig_mc = go.Figure()
+                for i in range(50):
+                    fig_mc.add_trace(go.Scatter(y=paths[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
+                fig_mc.add_hline(y=last_price, line_dash="dot", line_color="white", annotation_text="Precio Actual")
+                fig_mc.add_hline(y=target_mc, line_dash="dash", line_color="#00C853", annotation_text="Objetivo")
+                fig_mc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", title="50 Escenarios de Prueba Aleatorios", font=dict(family="Inter"))
+                st.plotly_chart(fig_mc, use_container_width=True, config={'displayModeBar': False})
                 
-            fig_mc.add_hline(y=last_price, line_dash="dot", line_color="white", annotation_text="Precio Actual")
-            fig_mc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", title="Muestra Visual: 50 Escenarios de Prueba Aleatorios", font=dict(family="Inter"))
-            st.plotly_chart(fig_mc, use_container_width=True, config={'displayModeBar': False})
+            with c_g2:
+                fig_hist = go.Figure(data=[go.Violin(y=final_prices, side='positive', line_color='#d4af37', fillcolor='rgba(212,175,55,0.4)', showlegend=False, points=False, width=3)])
+                fig_hist.add_hline(y=last_price, line_dash="dot", line_color="white")
+                fig_hist.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", title="Campana Densidad", xaxis_visible=False, font=dict(family="Inter"))
+                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
             
             # AI Conclusion
             verdicto = "riesgo aceptable" if prob_loss_20 < 15 else "riesgo MUY ALTO"
@@ -1457,9 +1792,10 @@ with tab_mc:
             <div class='glow-hover' style='background: rgba(128,128,128,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 20px;'>
                 <h4 style='color: #d4af37; margin-top: 0;'>🤖 Interpretación de Á.L.V.A.R.O.</h4>
                 <p style='font-size: 0.9rem; line-height: 1.5; margin-bottom: 0;'>
-                Basado en el caos matemático de los últimos años, si compras hoy, tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año en positivo. 
-                El peor escenario probable (que ocurre solo en un 5% de los multiversos) te dejaría la acción en <b>{sym}{p5:.2f}</b>, mientras que el mejor de los casos la impulsaría a <b>{sym}{p95:.2f}</b>. 
-                Dado que hay un {prob_loss_20:.1f}% de probabilidad de que tu cartera caiga más de un 20%, consideramos que es una inversión de <b>{verdicto}</b> desde el punto de vista estadístico.
+                Basado en el caos matemático de los últimos años (incluyendo el riesgo estadístico de Cisnes Negros), si compras hoy, tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año en positivo. 
+                El peor escenario estadístico probable te dejaría la acción en <b>{sym}{p5:.2f}</b>, mientras que el mejor de los casos la impulsaría a <b>{sym}{p95:.2f}</b>. 
+                Hay exactamente un <b>{prob_target:.1f}%</b> de probabilidad de que alcances tu objetivo de {sym}{target_mc:,.2f}. 
+                Consideramos que es una inversión de <b>{verdicto}</b> desde el punto de vista del Tail Risk.
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -1586,8 +1922,78 @@ with tab_port:
                 )
                 st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
             
+            # ── Matriz de Correlación ──
             st.divider()
-            if st.button("🎲 Simulación Monte Carlo Global de Cartera", type="primary", use_container_width=True):
+            st.markdown("#### 🔗 Matriz de Correlación entre Activos")
+            st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Mide cómo se mueven tus activos entre sí. <b style='color:#FF3D00;'>Rojo intenso</b> = se mueven juntos (riesgo concentrado). <b style='color:#1E90FF;'>Azul intenso</b> = se mueven en dirección opuesta (diversificación real).</p>", unsafe_allow_html=True)
+            
+            valid_tks_corr = [d["Ticker"] for d in port_data]
+            if len(valid_tks_corr) >= 2:
+                with st.spinner("Calculando correlaciones históricas (6 meses)..."):
+                    try:
+                        corr_dl = yf.download(valid_tks_corr, period="6mo", progress=False)
+                        if 'Close' in corr_dl:
+                            corr_closes = corr_dl['Close']
+                            if isinstance(corr_closes, pd.Series):
+                                corr_closes = corr_closes.to_frame()
+                            corr_returns = corr_closes.pct_change().dropna()
+                            corr_matrix = corr_returns.corr()
+                            
+                            # Heatmap con Plotly
+                            fig_corr = go.Figure(data=go.Heatmap(
+                                z=corr_matrix.values,
+                                x=corr_matrix.columns.tolist(),
+                                y=corr_matrix.index.tolist(),
+                                colorscale=[
+                                    [0.0, '#1E90FF'],
+                                    [0.5, '#0a0b10'],
+                                    [1.0, '#FF3D00']
+                                ],
+                                zmin=-1, zmax=1,
+                                text=np.round(corr_matrix.values, 2),
+                                texttemplate='%{text}',
+                                textfont=dict(size=13, family='JetBrains Mono'),
+                                hovertemplate='%{x} vs %{y}: %{z:.2f}<extra></extra>',
+                                colorbar=dict(
+                                    title=dict(text="Corr", side="right"),
+                                    tickvals=[-1, -0.5, 0, 0.5, 1],
+                                    ticktext=["-1", "-0.5", "0", "+0.5", "+1"]
+                                )
+                            ))
+                            fig_corr.update_layout(
+                                height=max(300, len(valid_tks_corr) * 55),
+                                margin=dict(l=0, r=0, t=10, b=0),
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family='Inter', color='rgba(255,255,255,0.8)'),
+                                xaxis=dict(side='bottom'),
+                                yaxis=dict(autorange='reversed')
+                            )
+                            st.plotly_chart(fig_corr, use_container_width=True, config={'displayModeBar': False})
+                            
+                            # Interpretación automática
+                            mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=1)
+                            upper_vals = corr_matrix.where(mask)
+                            avg_corr = upper_vals.stack().mean()
+                            max_pair = upper_vals.stack().idxmax()
+                            max_val = upper_vals.stack().max()
+                            
+                            if avg_corr > 0.7:
+                                st.warning(f"⚠️ **Correlación media alta ({avg_corr:.2f}).** Tu cartera está muy concentrada en activos que se mueven juntos. Si uno cae, probablemente caerán todos. El par más correlacionado es **{max_pair[0]}/{max_pair[1]}** ({max_val:.2f}).")
+                            elif avg_corr > 0.4:
+                                st.info(f"ℹ️ **Correlación media moderada ({avg_corr:.2f}).** Diversificación aceptable pero mejorable. El par más correlacionado es **{max_pair[0]}/{max_pair[1]}** ({max_val:.2f}). Considera añadir activos de sectores distintos.")
+                            else:
+                                st.success(f"✅ **Correlación media baja ({avg_corr:.2f}).** Excelente diversificación. Tus activos se mueven de forma independiente, lo que reduce el riesgo global de la cartera.")
+                    except Exception as e:
+                        st.error(f"Error al calcular correlaciones: {e}")
+            else:
+                st.info("Añade al menos 2 activos a la cartera para ver la matriz de correlación.")
+            
+            st.divider()
+            st.markdown("#### 🎯 Calculadora de Objetivos de Cartera")
+            target_port = st.number_input("¿A qué valor te gustaría que llegase tu cartera entera a final de año?", min_value=0.0, value=float(total_value)*1.15, step=10.0)
+
+            if st.button("🎲 Ejecutar Simulación Institucional (Cholesky & Fat Tails)", type="primary", use_container_width=True):
                 with st.spinner("Calculando matriz de covarianza y simulando 1.000 futuros globales..."):
                     try:
                         port_hists = {}
@@ -1607,31 +2013,53 @@ with tab_port:
                             df_p = pd.DataFrame(port_hists).ffill().bfill()
                             if not df_p.empty:
                                 daily_returns = df_p.pct_change().dropna()
+                                num_assets = len(df_p.columns)
                                 
-                                # Use simulation close prices to ensure weights sum to exactly 1.0
+                                # Matrices de Covarianza
+                                cov_matrix = daily_returns.cov().values
+                                mu_array = daily_returns.mean().values
+                                
+                                # Pesos actuales exactos
                                 sim_total_val = sum([port[tk] * df_p[tk].iloc[-1] for tk in df_p.columns])
                                 weights = np.array([(port[tk] * df_p[tk].iloc[-1]) / sim_total_val for tk in df_p.columns])
-                                port_return = daily_returns.dot(weights)
+                            
+                                days = 252
+                                sims = 1000
+                                paths_p = np.zeros((days, sims))
+                                paths_p[0] = total_value
                                 
-                                mu_p = port_return.mean()
-                                sigma_p = port_return.std()
-                            
-                            days = 252
-                            sims = 1000
-                            paths_p = np.zeros((days, sims))
-                            paths_p[0] = total_value
-                            
-                            for t in range(1, days):
-                                rand_rets = np.random.normal(mu_p, sigma_p, sims)
-                                paths_p[t] = paths_p[t-1] * (1 + rand_rets)
+                                try:
+                                    # Descomposición de Cholesky para correlacionar los activos
+                                    L = np.linalg.cholesky(cov_matrix)
+                                    for t in range(1, days):
+                                        # Variables aleatorias t-Student independientes (Fat Tails)
+                                        Z = np.random.standard_t(df=4, size=(sims, num_assets)) / np.sqrt(2)
+                                        # Aplicamos Cholesky para correlacionarlas
+                                        correlated_rets = mu_array + Z.dot(L.T)
+                                        # Retorno diario de la cartera según los pesos
+                                        port_day_ret = correlated_rets.dot(weights)
+                                        paths_p[t] = paths_p[t-1] * (1 + port_day_ret)
+                                except:
+                                    # Fallback si Cholesky falla (ej. matriz singular o 1 solo activo)
+                                    port_return = daily_returns.dot(weights)
+                                    mu_p = port_return.mean()
+                                    sigma_p = port_return.std()
+                                    scale_factor = sigma_p / np.sqrt(2)
+                                    for t in range(1, days):
+                                        rand_rets = (np.random.standard_t(df=4, size=sims) * scale_factor) + mu_p
+                                        paths_p[t] = paths_p[t-1] * (1 + rand_rets)
                                 
                             final_p = paths_p[-1]
                             p5_p = np.percentile(final_p, 5)
                             p95_p = np.percentile(final_p, 95)
                             prob_gain = (final_p > total_value).mean() * 100
                             prob_loss_20 = (final_p < (total_value * 0.80)).mean() * 100
+                            prob_target = (final_p >= target_port).mean() * 100
                             
-                            st.markdown(f"#### 🔮 Proyección a 1 Año (Diversificada)")
+                            st.markdown(f"**Probabilidad de alcanzar ${target_port:,.2f}:** <span style='color:#d4af37; font-size:1.2rem; font-weight:bold;'>{prob_target:.1f}%</span>", unsafe_allow_html=True)
+                            st.divider()
+                            
+                            st.markdown(f"#### 🔮 Proyección a 1 Año (Diversificada y Correlacionada)")
                             c_m1, c_m2, c_m3 = st.columns(3)
                             c_m1.metric("Prob. Ganancia (1 Año)", f"{prob_gain:.1f}%", help="Porcentaje de los 1.000 futuros en los que cerrarías el año con dinero extra.")
                             c_m2.metric("Prob. Caída Severa (>20%)", f"{prob_loss_20:.1f}%", help="Tail Risk de la Cartera. Probabilidad de sufrir un crash fuerte.")
@@ -1642,33 +2070,105 @@ with tab_port:
                             c_m4.metric("Peor Escenario (Percentil 5)", f"${p5_p:,.2f}", help="En el 95% de los escenarios, ganarás más dinero que esto.")
                             c_m5.metric("Mejor Escenario (Percentil 95)", f"${p95_p:,.2f}", help="Escenario hiper-optimista (solo un 5% de probabilidad de superarlo).")
                             
-                            fig_pmc = go.Figure()
-                            for i in range(50):
-                                fig_pmc.add_trace(go.Scatter(y=paths_p[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
-                            fig_pmc.add_hline(y=total_value, line_dash="dot", line_color="white", annotation_text="Valor Actual")
-                            fig_pmc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
-                            st.plotly_chart(fig_pmc, use_container_width=True, config={'displayModeBar': False})
+                            c_pg1, c_pg2 = st.columns([2, 1])
+                            with c_pg1:
+                                fig_pmc = go.Figure()
+                                for i in range(50):
+                                    fig_pmc.add_trace(go.Scatter(y=paths_p[:, i], mode='lines', line=dict(color='rgba(212,175,55,0.25)', width=1), showlegend=False))
+                                fig_pmc.add_hline(y=total_value, line_dash="dot", line_color="white", annotation_text="Valor Actual")
+                                fig_pmc.add_hline(y=target_port, line_dash="dash", line_color="#00C853", annotation_text="Objetivo")
+                                fig_pmc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+                                st.plotly_chart(fig_pmc, use_container_width=True, config={'displayModeBar': False})
+                                
+                            with c_pg2:
+                                fig_phist = go.Figure(data=[go.Violin(y=final_p, side='positive', line_color='#d4af37', fillcolor='rgba(212,175,55,0.4)', showlegend=False, points=False, width=3)])
+                                fig_phist.add_hline(y=total_value, line_dash="dot", line_color="white")
+                                fig_phist.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis_visible=False, font=dict(family="Inter"))
+                                st.plotly_chart(fig_phist, use_container_width=True, config={'displayModeBar': False})
                             
                             verdicto = "riesgo aceptable" if prob_loss_20 < 15 else "riesgo MUY ALTO"
                             st.markdown(f"""
                             <div class='glow-hover' style='background: rgba(128,128,128,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 20px;'>
                                 <h4 style='color: #d4af37; margin-top: 0;'>🤖 Interpretación de Cartera de Á.L.V.A.R.O.</h4>
                                 <p style='font-size: 0.9rem; line-height: 1.5; margin-bottom: 0;'>
-                                Al combinar la volatilidad de todos tus activos, tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año ganando dinero. 
-                                Tu "red de seguridad" (el peor escenario estadístico probable) dejaría tu cartera en <b>${p5_p:,.2f}</b>, mientras que el techo optimista la dispararía a <b>${p95_p:,.2f}</b>. 
-                                Dado que hay un {prob_loss_20:.1f}% de probabilidad de sufrir una caída drástica (>20%), consideramos que es una cartera de <b>{verdicto}</b>.
+                                Al simular la matriz de covarianza completa (evaluando cómo interactúan tus activos entre sí), tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año ganando dinero. 
+                                Tu "red de seguridad" (el peor escenario estadístico) dejaría tu cartera en <b>${p5_p:,.2f}</b>, mientras que el techo optimista la dispararía a <b>${p95_p:,.2f}</b>. 
+                                Tienes exactamente un <b>{prob_target:.1f}%</b> de probabilidad de llegar a tu objetivo de ${target_port:,.2f}. 
+                                Consideramos que es una cartera de <b>{verdicto}</b> ante caídas extremas.
                                 </p>
                             </div>
                             """, unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Error en simulación: {e}")
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🗑️ Vaciar Cartera", type="secondary"):
-                st.session_state["portfolio"] = {}
-                st.rerun()
+
     else:
         st.info("Tu cartera está vacía. Añade tu primera acción arriba.")
+
+# ── Tab 9: Noticias ──
+with tab_news:
+    st.markdown("### 📰 Flujo de Noticias")
+    st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Últimas noticias publicadas que pueden afectar a la cotización a corto plazo.</p>", unsafe_allow_html=True)
+    
+    if not news_data:
+        st.info("No se encontraron noticias recientes para este activo en Yahoo Finance.")
+    else:
+        st.markdown("<br>", unsafe_allow_html=True)
+        for article in news_data:
+            title = article.get("title", "Sin Título")
+            publisher = article.get("publisher", "Fuente Desconocida")
+            pub_time = article.get("time", 0)
+                
+            dt_str = datetime.fromtimestamp(pub_time).strftime('%d %b %Y, %H:%M') if pub_time else "Reciente"
+            
+            st.markdown(f"""
+            <div class="glow-hover" style="background: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.2); border-left: 4px solid #d4af37; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 1.15rem; font-weight: 600;">{title}</h4>
+                <div style="font-size: 0.85rem; opacity: 0.7;">
+                    <span>🏢 <b>{publisher}</b> · 🕒 {dt_str}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ── Tab 10: Institucional / Insiders ──
+with tab_inst:
+    st.markdown("### 🏦 Flujo de Dinero Institucional")
+    st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>¿Qué están haciendo las grandes 'Manos Fuertes' (Vanguard, Blackrock) y los propios directivos de la empresa?</p>", unsafe_allow_html=True)
+    
+    col_inst1, col_inst2 = st.columns(2)
+    
+    with col_inst1:
+        st.markdown("#### 🏛️ Principales Accionistas Institucionales")
+        if not inst_data.empty and "Holder" in inst_data.columns:
+            # Formatear tabla
+            df_inst_show = inst_data.copy()
+            if "pctChange" in df_inst_show.columns:
+                df_inst_show["pctChange"] = (df_inst_show["pctChange"] * 100).apply(lambda x: f"+{x:.2f}%" if x > 0 else f"{x:.2f}%")
+            if "Value" in df_inst_show.columns:
+                df_inst_show["Value"] = df_inst_show["Value"].apply(lambda x: fmt_big(x) if isinstance(x, (int, float)) else x)
+                
+            st.dataframe(df_inst_show[["Holder", "Shares", "Value", "pctChange"]].head(10), use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay datos recientes de tenencia institucional.")
+            
+    with col_inst2:
+        st.markdown("#### 👔 Operaciones de Directivos (Insiders)")
+        if not insd_data.empty:
+            df_insd_show = insd_data.copy()
+            # Limpiar columnas irrelevantes
+            cols_to_show = []
+            if "Insider" in df_insd_show.columns: cols_to_show.append("Insider")
+            if "Position" in df_insd_show.columns: cols_to_show.append("Position")
+            if "Transaction" in df_insd_show.columns or "Text" in df_insd_show.columns:
+                cols_to_show.append("Transaction" if "Transaction" in df_insd_show.columns else "Text")
+            if "Shares" in df_insd_show.columns: cols_to_show.append("Shares")
+            
+            if cols_to_show:
+                st.dataframe(df_insd_show[cols_to_show].head(15), use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(df_insd_show.head(15), use_container_width=True, hide_index=True)
+        else:
+            st.info("No se han registrado operaciones de insiders recientemente.")
 
 # ── Export PDF / HTML ──
 if ticker and not income.empty:
@@ -1694,21 +2194,41 @@ if ticker and not income.empty:
     e_graham = np.sqrt(22.5 * e_eps * e_bvps) if e_eps > 0 and e_bvps > 0 else e_bvps
     e_upside = (e_graham - price) / price if price else 0
 
+    # Calcular Piotroski para el export
+    _exp_pio = 0
+    _ni_c = income.iloc[:, 0].get("Net Income", 0) if not income.empty and len(income.columns) > 0 else 0
+    _ta_c = 1
+    if not balance.empty and "Total Assets" in balance.index:
+        _ta_c = balance.iloc[:, 0].get("Total Assets", 1) or 1
+    if _ni_c and _ta_c and (_ni_c / _ta_c) > 0: _exp_pio += 1
+    _cfo_c = 0
+    if not cashflow.empty:
+        for _k in ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"]:
+            if _k in cashflow.index: _cfo_c = cashflow.iloc[:, 0].get(_k, 0) or 0; break
+    if _cfo_c > 0: _exp_pio += 1
+    if _cfo_c > _ni_c: _exp_pio += 1
+    _exp_pio_label = "Excelente" if _exp_pio >= 3 else "Aceptable" if _exp_pio >= 2 else "Débil"
+    
     html_export = f"""
     <html><head><meta charset="utf-8"><title>Informe {ticker}</title>
-    <style>body{{font-family:'Arial',sans-serif;background:#0a0b10;color:#fff;padding:40px;}}h1,h2,h3{{color:#d4af37;}}</style>
+    <style>body{{font-family:'Inter','Arial',sans-serif;background:#0a0b10;color:#e0e0e0;padding:40px;max-width:800px;margin:0 auto;}}h1,h2,h3{{color:#d4af37;}}hr{{border-color:rgba(212,175,55,0.3);}}table{{width:100%;border-collapse:collapse;margin:20px 0;}}td,th{{padding:10px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2);}}th{{color:#d4af37;font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;}}.badge{{display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.85rem;}}</style>
     </head><body>
-        <h1>Informe de Valoración Profesional: {name} ({ticker})</h1>
-        <h2>Precio Actual en Mercado: {sym}{price:,.2f}</h2>
-        <h2>Valor Justo Defensivo (Graham): {sym}{e_graham:,.2f}</h2>
-        <h3 style="color:{color_up if e_upside>0 else color_down};">POTENCIAL ESTIMADO: {abs(e_upside)*100:.1f}% {'ALCISTA' if e_upside>0 else 'BAJISTA'}</h3>
+        <h1>📊 Informe Institucional: {name} ({ticker})</h1>
+        <p style="opacity:0.6;">Sector: {sector} · {industry} · {country}</p>
         <hr>
-        <h3>Múltiplos Clave</h3>
-        <ul>
-            <li>PER (Price/Earnings): {mkt_cap/e_net_income if e_net_income and e_net_income > 0 else 0:.1f}x</li>
-            <li>EV/EBITDA: {e_ev/e_ebitda if e_ebitda and e_ebitda > 0 else 0:.1f}x</li>
-        </ul>
-        <br><br><p style="opacity:0.5;">Generado por motor de Inteligencia Financiera Á.L.V.A.R.O. | ValuationPro</p>
+        <table>
+            <tr><th>Métrica</th><th>Valor</th></tr>
+            <tr><td>Precio Actual</td><td><b>{sym}{price:,.2f}</b></td></tr>
+            <tr><td>Valor Justo (Graham)</td><td><b>{sym}{e_graham:,.2f}</b></td></tr>
+            <tr><td>Potencial Estimado</td><td style="color:{color_up if e_upside>0 else color_down};"><b>{abs(e_upside)*100:.1f}% {'ALCISTA' if e_upside>0 else 'BAJISTA'}</b></td></tr>
+            <tr><td>PER</td><td>{mkt_cap/e_net_income if e_net_income and e_net_income > 0 else 0:.1f}x</td></tr>
+            <tr><td>EV/EBITDA</td><td>{e_ev/e_ebitda if e_ebitda and e_ebitda > 0 else 0:.1f}x</td></tr>
+            <tr><td>Dividendo</td><td>{div_str}</td></tr>
+            <tr><td>Capitalización</td><td>{fmt_big(mkt_cap)}</td></tr>
+            <tr><td>Piotroski F-Score (Parcial)</td><td><b>{_exp_pio}/3</b> — {_exp_pio_label}</td></tr>
+        </table>
+        <hr>
+        <p style="opacity:0.4; font-size:0.8rem; margin-top:40px;">Generado por motor de Inteligencia Financiera Á.L.V.A.R.O. · ValuationPro · {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
     </body></html>
     """
     st.sidebar.download_button(label="📄 Descargar Informe (Imprimir PDF)", data=html_export, file_name=f"Informe_{ticker}.html", mime="text/html", use_container_width=True)
