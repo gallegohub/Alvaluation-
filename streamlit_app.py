@@ -580,23 +580,65 @@ if not ticker:
 # ── Load Data ──
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_data_v3(t, per, intv):
+    # 1. Histórico mediante yf.download (Mucho más resistente a baneos en la nube)
+    h = pd.DataFrame()
+    try:
+        h_dl = yf.download(t, period=per, interval=intv, progress=False)
+        if isinstance(h_dl.columns, pd.MultiIndex):
+            h = h_dl.xs(t, axis=1, level=1) if t in h_dl.columns.get_level_values(1) else h_dl
+        else:
+            h = h_dl
+    except: pass
+
     stock = yf.Ticker(t)
-    inf = stock.info
-    if not inf or inf.get("regularMarketPrice") is None:
-        if stock.fast_info is None:
-            return None, f"No se encontró el ticker **{t}**"
-    inc = stock.financials
-    bal = stock.balance_sheet
-    cf = stock.cashflow
-    h = stock.history(period=per, interval=intv)
-    if h is None or h.empty:
-        return None, f"No hay datos de precio históricos para **{t}**"
-        
-    inc = inc if inc is not None else pd.DataFrame()
-    bal = bal if bal is not None else pd.DataFrame()
-    cf = cf if cf is not None else pd.DataFrame()
     
-    return {"info": inf, "income": inc, "balance": bal, "cashflow": cf, "hist": h}, None
+    if h is None or h.empty:
+        try: h = stock.history(period=per, interval=intv)
+        except: pass
+        
+    if h is None or h.empty:
+        return None, f"Error severo (Too Many Requests / Rate Limit) al cargar **{t}**. Yahoo Finance ha bloqueado la IP temporalmente. Prueba en un par de minutos."
+
+    inf, inc, bal, cf = {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    
+    # 2. Info básica (Solo primitivos para que st.cache_data lo pueda serializar con pickle)
+    try: 
+        fi = stock.fast_info
+        inf["currentPrice"] = float(fi.last_price) if getattr(fi, "last_price", None) else None
+        inf["marketCap"] = float(fi.market_cap) if getattr(fi, "market_cap", None) else None
+        inf["currency"] = str(fi.currency) if getattr(fi, "currency", None) else "USD"
+        inf["sharesOutstanding"] = int(fi.shares) if getattr(fi, "shares", None) else 1
+    except: pass
+    
+    # 3. Info completa (Suele dar error de Rate Limit, si falla no pasa nada)
+    try: 
+        i_full = stock.info
+        if i_full:
+            # Filtrar dict para evitar objetos raros
+            for k, v in i_full.items():
+                if isinstance(v, (int, float, str, bool)):
+                    inf[k] = v
+    except: pass
+    
+    # 4. Respaldo crítico: Si todo falla, sacamos el precio del histórico
+    if not inf.get("currentPrice") and not inf.get("regularMarketPrice"):
+        if not h.empty and "Close" in h.columns:
+            last_p = float(h["Close"].iloc[-1])
+            inf["currentPrice"] = last_p
+            inf["regularMarketPrice"] = last_p
+            if len(h) >= 2:
+                prev_p = float(h["Close"].iloc[-2])
+                inf["regularMarketChangePercent"] = ((last_p - prev_p) / prev_p) * 100
+
+    # 5. Financieros (Con try/except individual)
+    try: inc = stock.financials
+    except: pass
+    try: bal = stock.balance_sheet
+    except: pass
+    try: cf = stock.cashflow
+    except: pass
+    
+    return {"info": inf, "income": inc if inc is not None else pd.DataFrame(), "balance": bal if bal is not None else pd.DataFrame(), "cashflow": cf if cf is not None else pd.DataFrame(), "hist": h}, None
 
 with st.spinner(f"Cargando datos de **{ticker}**..."):
     try:
