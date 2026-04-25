@@ -8,6 +8,17 @@ from io import BytesIO
 from datetime import datetime
 from plotly.subplots import make_subplots
 import plotly.express as px
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def search_ticker_by_name(query):
+    try:
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=5&newsCount=0"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        res = requests.get(url, headers=headers, timeout=3)
+        if res.status_code == 200:
+            return [{"symbol": q["symbol"], "name": q["shortname"]} for q in res.json().get("quotes", []) if "symbol" in q and "shortname" in q]
+    except: pass
+    return []
 # ── Config ──
 st.set_page_config(page_title="ValuationPro", page_icon="📊", layout="wide")
 
@@ -106,66 +117,104 @@ MARKETS_BY_COUNTRY = {
     "🇺🇸 Estados Unidos": {
         "iso_alpha": "USA", "lat": 39.0, "lon": -98.0, "index": "^GSPC",
         "sectors": {
-            "Tecnología": {"AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "Nvidia", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta", "TSLA": "Tesla", "AVGO": "Broadcom", "TSM": "TSMC", "ASML": "ASML", "ORCL": "Oracle", "AMD": "AMD", "QCOM": "Qualcomm", "CRM": "Salesforce", "NFLX": "Netflix", "ADBE": "Adobe", "CSCO": "Cisco", "INTC": "Intel", "IBM": "IBM", "NOW": "ServiceNow", "UBER": "Uber", "INTU": "Intuit", "AMAT": "Applied Materials"},
-            "Finanzas": {"JPM": "JPMorgan", "V": "Visa", "MA": "Mastercard", "BAC": "Bank of America", "WFC": "Wells Fargo", "MS": "Morgan Stanley", "GS": "Goldman Sachs", "AXP": "American Express", "BLK": "BlackRock", "C": "Citigroup", "CB": "Chubb", "PGR": "Progressive", "CME": "CME Group"},
-            "Salud": {"UNH": "UnitedHealth", "LLY": "Eli Lilly", "JNJ": "Johnson & Johnson", "MRK": "Merck", "ABBV": "AbbVie", "TMO": "Thermo Fisher", "DHR": "Danaher", "PFE": "Pfizer", "ABT": "Abbott", "AMGN": "Amgen", "ISRG": "Intuitive Surgical", "SYK": "Stryker", "MDT": "Medtronic"},
-            "Consumo": {"WMT": "Walmart", "PG": "Procter & Gamble", "COST": "Costco", "HD": "Home Depot", "PEP": "PepsiCo", "KO": "Coca-Cola", "MCD": "McDonald's", "NKE": "Nike", "SBUX": "Starbucks", "TGT": "Target", "LOW": "Lowe's", "EL": "Estée Lauder"},
-            "Energía e Industria": {"XOM": "Exxon", "CVX": "Chevron", "COP": "ConocoPhillips", "EOG": "EOG Resources", "GE": "General Electric", "CAT": "Caterpillar", "HON": "Honeywell", "BA": "Boeing", "RTX": "Raytheon", "UNP": "Union Pacific", "UPS": "UPS", "LMT": "Lockheed Martin", "DE": "Deere"},
-            "Telecom y Real Estate": {"AMT": "American Tower", "PLD": "Prologis", "CCI": "Crown Castle", "VZ": "Verizon", "T": "AT&T", "CMCSA": "Comcast", "DIS": "Disney", "NEE": "NextEra", "DUK": "Duke Energy"}
+            "Tecnología": {"AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "Nvidia", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta", "TSLA": "Tesla", "AVGO": "Broadcom", "TSM": "TSMC", "ASML": "ASML", "ORCL": "Oracle", "AMD": "AMD", "QCOM": "Qualcomm", "CRM": "Salesforce", "NFLX": "Netflix", "ADBE": "Adobe", "CSCO": "Cisco", "INTC": "Intel", "IBM": "IBM", "NOW": "ServiceNow", "UBER": "Uber", "INTU": "Intuit", "AMAT": "Applied Materials", "TXN": "Texas Instruments", "MU": "Micron", "PANW": "Palo Alto Networks"},
+            "Finanzas": {"JPM": "JPMorgan", "V": "Visa", "MA": "Mastercard", "BAC": "Bank of America", "WFC": "Wells Fargo", "MS": "Morgan Stanley", "GS": "Goldman Sachs", "AXP": "American Express", "BLK": "BlackRock", "C": "Citigroup", "CB": "Chubb", "PGR": "Progressive", "CME": "CME Group", "SPGI": "S&P Global", "MMC": "Marsh McLennan"},
+            "Salud": {"UNH": "UnitedHealth", "LLY": "Eli Lilly", "JNJ": "Johnson & Johnson", "MRK": "Merck", "ABBV": "AbbVie", "TMO": "Thermo Fisher", "DHR": "Danaher", "PFE": "Pfizer", "ABT": "Abbott", "AMGN": "Amgen", "ISRG": "Intuitive Surgical", "SYK": "Stryker", "MDT": "Medtronic", "VRTX": "Vertex", "REGN": "Regeneron", "BSX": "Boston Scientific"},
+            "Consumo": {"WMT": "Walmart", "PG": "Procter & Gamble", "COST": "Costco", "HD": "Home Depot", "PEP": "PepsiCo", "KO": "Coca-Cola", "MCD": "McDonald's", "NKE": "Nike", "SBUX": "Starbucks", "TGT": "Target", "LOW": "Lowe's", "EL": "Estée Lauder", "PM": "Philip Morris", "MDLZ": "Mondelez", "TJX": "TJX Companies"},
+            "Energía e Industria": {"XOM": "Exxon", "CVX": "Chevron", "COP": "ConocoPhillips", "EOG": "EOG Resources", "GE": "General Electric", "CAT": "Caterpillar", "HON": "Honeywell", "BA": "Boeing", "RTX": "Raytheon", "UNP": "Union Pacific", "UPS": "UPS", "LMT": "Lockheed Martin", "DE": "Deere", "SLB": "Schlumberger", "MPC": "Marathon", "ETN": "Eaton"},
+            "Telecom y Real Estate": {"AMT": "American Tower", "PLD": "Prologis", "CCI": "Crown Castle", "VZ": "Verizon", "T": "AT&T", "CMCSA": "Comcast", "DIS": "Disney", "NEE": "NextEra", "DUK": "Duke Energy", "SO": "Southern Company", "EQIX": "Equinix"}
         }
     },
     "🇪🇸 España (IBEX 35)": {
         "iso_alpha": "ESP", "lat": 40.0, "lon": -4.0, "index": "^IBEX",
         "sectors": {
-            "Banca y Finanzas": {"SAN.MC": "Banco Santander", "BBVA.MC": "BBVA", "CABK.MC": "CaixaBank", "SAB.MC": "Banco Sabadell", "BKT.MC": "Bankinter", "MAP.MC": "Mapfre", "UNI.MC": "Unicaja"},
-            "Energía y Utilities": {"IBE.MC": "Iberdrola", "REP.MC": "Repsol", "NTGY.MC": "Naturgy", "ELE.MC": "Endesa", "ENG.MC": "Enagás", "RED.MC": "Redeia", "SLR.MC": "Solaria"},
-            "Consumo y Servicios": {"ITX.MC": "Inditex", "IAG.MC": "IAG", "MEL.MC": "Meliá Hotels", "AENA.MC": "Aena", "AMS.MC": "Amadeus", "LOG.MC": "Logista", "VIS.MC": "Viscofan"},
-            "Industria y Construcción": {"FER.MC": "Ferrovial", "ACS.MC": "ACS", "MTS.MC": "ArcelorMittal", "ACX.MC": "Acerinox", "FDR.MC": "Fluidra", "SACY.MC": "Sacyr", "FCC.MC": "FCC"},
-            "Telecos y Salud": {"TEF.MC": "Telefónica", "CLNX.MC": "Cellnex", "GRF.MC": "Grifols", "ROVI.MC": "Lab Rovi"}
+            "Banca y Finanzas": {"SAN.MC": "Banco Santander", "BBVA.MC": "BBVA", "CABK.MC": "CaixaBank", "SAB.MC": "Banco Sabadell", "BKT.MC": "Bankinter", "MAP.MC": "Mapfre", "UNI.MC": "Unicaja", "ALB.MC": "Corporación Alba", "CASH.MC": "Prosegur Cash"},
+            "Energía y Utilities": {"IBE.MC": "Iberdrola", "REP.MC": "Repsol", "NTGY.MC": "Naturgy", "ELE.MC": "Endesa", "ENG.MC": "Enagás", "RED.MC": "Redeia", "SLR.MC": "Solaria", "ENC.MC": "Ence", "GRE.MC": "Grenergy", "ANE.MC": "Acciona Energía"},
+            "Consumo y Servicios": {"ITX.MC": "Inditex", "IAG.MC": "IAG", "MEL.MC": "Meliá Hotels", "AENA.MC": "Aena", "AMS.MC": "Amadeus", "LOG.MC": "Logista", "VIS.MC": "Viscofan", "PUIG.MC": "Puig", "DIA.MC": "Supermercados DIA", "EBRO.MC": "Ebro Foods", "NHH.MC": "NH Hotel Group", "A3M.MC": "Atresmedia", "PSG.MC": "Prosegur"},
+            "Inmobiliarias (REITs)": {"MRL.MC": "Merlin Properties", "COL.MC": "Inmobiliaria Colonial"},
+            "Industria y Construcción": {"FER.MC": "Ferrovial", "ACS.MC": "ACS", "MTS.MC": "ArcelorMittal", "ACX.MC": "Acerinox", "FDR.MC": "Fluidra", "SACY.MC": "Sacyr", "FCC.MC": "FCC", "ANA.MC": "Acciona", "CIE.MC": "CIE Automotive", "GEST.MC": "Gestamp", "VID.MC": "Vidrala", "CAF.MC": "CAF", "TLGO.MC": "Talgo", "TRE.MC": "Técnicas Reunidas", "OHLA.MC": "OHLA", "TUB.MC": "Tubacex", "ENO.MC": "Elecnor"},
+            "Tecnología y Salud": {"TEF.MC": "Telefónica", "CLNX.MC": "Cellnex", "GRF.MC": "Grifols", "ROVI.MC": "Lab Rovi", "IDA.MC": "Indra", "ALM.MC": "Almirall", "PHM.MC": "PharmaMar", "FAE.MC": "Faes Farma"}
         }
     },
     "🇩🇪 Alemania (DAX)": {
         "iso_alpha": "DEU", "lat": 51.0, "lon": 10.0, "index": "^GDAXI",
         "sectors": {
             "Automoción e Industria": {"VOW3.DE": "Volkswagen", "BMW.DE": "BMW", "MBG.DE": "Mercedes-Benz", "PAH3.DE": "Porsche", "SIE.DE": "Siemens", "AIR.DE": "Airbus", "BAS.DE": "BASF", "BAYN.DE": "Bayer", "DTG.DE": "Daimler Truck"},
-            "Finanzas y Seguros": {"ALV.DE": "Allianz", "MUV2.DE": "Munich Re", "CBK.DE": "Commerzbank", "DBK.DE": "Deutsche Bank", "HLAG.DE": "Hapag-Lloyd"},
-            "Tecnología y Otros": {"SAP.DE": "SAP", "IFX.DE": "Infineon", "DTE.DE": "Deutsche Telekom", "DHL.DE": "DHL Group", "ADS.DE": "Adidas", "MRK.DE": "Merck KGaA", "SY1.DE": "Symrise", "SHL.DE": "Siemens Healthineers"}
+            "Finanzas y Seguros": {"ALV.DE": "Allianz", "MUV2.DE": "Munich Re", "CBK.DE": "Commerzbank", "DBK.DE": "Deutsche Bank", "HLAG.DE": "Hapag-Lloyd", "HNR1.DE": "Hannover Rück"},
+            "Tecnología y Otros": {"SAP.DE": "SAP", "IFX.DE": "Infineon", "DTE.DE": "Deutsche Telekom", "DHL.DE": "DHL Group", "ADS.DE": "Adidas", "MRK.DE": "Merck KGaA", "SY1.DE": "Symrise", "SHL.DE": "Siemens Healthineers", "MTX.DE": "MTU Aero Engines", "RWE.DE": "RWE"}
         }
     },
     "🇫🇷 Francia (CAC 40)": {
         "iso_alpha": "FRA", "lat": 46.0, "lon": 2.0, "index": "^FCHI",
         "sectors": {
             "Lujo y Consumo": {"MC.PA": "LVMH", "OR.PA": "L'Oréal", "RMS.PA": "Hermès", "KER.PA": "Kering", "BN.PA": "Danone", "CDI.PA": "Christian Dior", "RI.PA": "Pernod Ricard"},
-            "Industria y Energía": {"TTE.PA": "TotalEnergies", "SU.PA": "Schneider", "AIR.PA": "Airbus", "CS.PA": "AXA", "SAN.PA": "Sanofi", "BNP.PA": "BNP Paribas", "VIV.PA": "Vivendi", "EN.PA": "Bouygues", "SGO.PA": "Saint-Gobain"}
+            "Industria y Energía": {"TTE.PA": "TotalEnergies", "SU.PA": "Schneider Electric", "AIR.PA": "Airbus", "CS.PA": "AXA", "SAN.PA": "Sanofi", "BNP.PA": "BNP Paribas", "VIV.PA": "Vivendi", "EN.PA": "Bouygues", "SGO.PA": "Saint-Gobain", "DG.PA": "Vinci", "LR.PA": "Legrand"}
         }
     },
     "🇬🇧 Reino Unido (FTSE 100)": {
         "iso_alpha": "GBR", "lat": 53.0, "lon": -2.0, "index": "^FTSE",
         "sectors": {
-            "Finanzas y Energía": {"HSBA.L": "HSBC", "BP.L": "BP", "SHEL.L": "Shell", "BARC.L": "Barclays", "LSEG.L": "LSE Group", "STAN.L": "Standard Chartered", "PRU.L": "Prudential"},
-            "Salud y Consumo": {"AZN.L": "AstraZeneca", "GSK.L": "GSK", "ULVR.L": "Unilever", "DGE.L": "Diageo", "BATS.L": "British American Tobacco", "RKT.L": "Reckitt", "TSCO.L": "Tesco"},
-            "Industria y Materiales": {"RIO.L": "Rio Tinto", "GLEN.L": "Glencore", "AAL.L": "Anglo American", "BA.L": "BAE Systems", "RR.L": "Rolls-Royce", "CRH.L": "CRH"}
+            "Finanzas y Energía": {"HSBA.L": "HSBC", "BP.L": "BP", "SHEL.L": "Shell", "BARC.L": "Barclays", "LSEG.L": "LSE Group", "STAN.L": "Standard Chartered", "PRU.L": "Prudential", "NWG.L": "NatWest", "AV.L": "Aviva"},
+            "Salud y Consumo": {"AZN.L": "AstraZeneca", "GSK.L": "GSK", "ULVR.L": "Unilever", "DGE.L": "Diageo", "BATS.L": "British American Tobacco", "RKT.L": "Reckitt", "TSCO.L": "Tesco", "CPG.L": "Compass Group", "IHG.L": "IHG"},
+            "Industria y Materiales": {"RIO.L": "Rio Tinto", "GLEN.L": "Glencore", "AAL.L": "Anglo American", "BA.L": "BAE Systems", "RR.L": "Rolls-Royce", "CRH.L": "CRH", "NXT.L": "Next"}
+        }
+    },
+    "🇨🇭 Suiza": {
+        "iso_alpha": "CHE", "lat": 46.8, "lon": 8.2, "index": "^SSMI",
+        "sectors": {
+            "Salud y Consumo": {"NESN.SW": "Nestlé", "NOVN.SW": "Novartis", "ROG.SW": "Roche", "CFR.SW": "Richemont", "GIVN.SW": "Givaudan", "ALC.SW": "Alcon"},
+            "Finanzas e Industria": {"UBSG.SW": "UBS Group", "ZURN.SW": "Zurich Insurance", "ABBN.SW": "ABB", "SIKA.SW": "Sika", "HOLN.SW": "Holcim", "LONN.SW": "Lonza"}
+        }
+    },
+    "🇳🇱 Países Bajos": {
+        "iso_alpha": "NLD", "lat": 52.1, "lon": 5.2, "index": "^AEX",
+        "sectors": {
+            "Tecnología y Finanzas": {"ASML.AS": "ASML", "ADYEN.AS": "Adyen", "INGA.AS": "ING Group", "UNA.AS": "Unilever", "HEIA.AS": "Heineken", "PHIA.AS": "Philips", "DSM.AS": "DSM-Firmenich", "PRX.AS": "Prosus"}
+        }
+    },
+    "🇮🇹 Italia": {
+        "iso_alpha": "ITA", "lat": 41.8, "lon": 12.5, "index": "FTSEMIB.MI",
+        "sectors": {
+            "Finanzas e Industria": {"ISP.MI": "Intesa Sanpaolo", "UCG.MI": "UniCredit", "ENEL.MI": "Enel", "ENI.MI": "Eni", "RACE.MI": "Ferrari", "STLAM.MI": "Stellantis", "G.MI": "Generali", "PRY.MI": "Prysmian"}
         }
     },
     "🇯🇵 Japón (Nikkei)": {
         "iso_alpha": "JPN", "lat": 36.0, "lon": 138.0, "index": "^N225",
         "sectors": {
-            "Tecnología y Motor": {"7203.T": "Toyota", "6758.T": "Sony", "9984.T": "SoftBank", "8035.T": "Tokyo Electron", "7974.T": "Nintendo", "6981.T": "Murata", "7267.T": "Honda", "6594.T": "Nidec", "6762.T": "TDK"},
-            "Finanzas e Industria": {"8306.T": "Mitsubishi UFJ", "8058.T": "Mitsubishi Corp", "9432.T": "NTT", "6861.T": "Keyence", "4502.T": "Takeda", "4568.T": "Daiichi Sankyo", "6098.T": "Recruit", "6367.T": "Daikin"}
+            "Tecnología y Motor": {"7203.T": "Toyota", "6758.T": "Sony", "9984.T": "SoftBank", "8035.T": "Tokyo Electron", "7974.T": "Nintendo", "6981.T": "Murata", "7267.T": "Honda", "6594.T": "Nidec", "6762.T": "TDK", "7741.T": "HOYA", "6954.T": "FANUC"},
+            "Finanzas e Industria": {"8306.T": "Mitsubishi UFJ", "8058.T": "Mitsubishi Corp", "9432.T": "NTT", "6861.T": "Keyence", "4502.T": "Takeda", "4568.T": "Daiichi Sankyo", "6098.T": "Recruit", "6367.T": "Daikin", "8001.T": "ITOCHU", "9983.T": "Fast Retailing"}
         }
     },
     "🇨🇳 China y HK": {
         "iso_alpha": "CHN", "lat": 35.0, "lon": 104.0, "index": "^HSI",
         "sectors": {
-            "Tecnología": {"0700.HK": "Tencent", "9988.HK": "Alibaba", "3690.HK": "Meituan", "1810.HK": "Xiaomi", "0981.HK": "SMIC", "BIDU": "Baidu", "JD": "JD.com", "PDD": "Pinduoduo", "NTES": "NetEase"},
-            "Finanzas y Consumo": {"0939.HK": "CCB", "1398.HK": "ICBC", "1299.HK": "AIA Group", "0027.HK": "Galaxy Ent", "2318.HK": "Ping An", "3988.HK": "Bank of China", "BYDDF": "BYD", "NIO": "NIO", "XPEV": "XPeng", "LI": "Li Auto"}
+            "Tecnología": {"0700.HK": "Tencent", "9988.HK": "Alibaba", "3690.HK": "Meituan", "1810.HK": "Xiaomi", "0981.HK": "SMIC", "BIDU": "Baidu", "JD": "JD.com", "PDD": "Pinduoduo", "NTES": "NetEase", "09618.HK": "JD Logistics"},
+            "Finanzas y Consumo": {"0939.HK": "CCB", "1398.HK": "ICBC", "1299.HK": "AIA Group", "0027.HK": "Galaxy Ent", "2318.HK": "Ping An", "3988.HK": "Bank of China", "BYDDF": "BYD", "NIO": "NIO", "XPEV": "XPeng", "LI": "Li Auto", "0883.HK": "CNOOC"}
+        }
+    },
+    "🇰🇷 Corea del Sur": {
+        "iso_alpha": "KOR", "lat": 35.9, "lon": 127.7, "index": "^KS11",
+        "sectors": {
+            "Tecnología e Industria": {"005930.KS": "Samsung Electronics", "000660.KS": "SK Hynix", "005380.KS": "Hyundai Motor", "051910.KS": "LG Chem", "000270.KS": "Kia", "035420.KS": "NAVER", "068270.KS": "Celltrion", "005490.KS": "POSCO", "035720.KS": "Kakao"}
+        }
+    },
+    "🇹🇼 Taiwán": {
+        "iso_alpha": "TWN", "lat": 23.6, "lon": 120.9, "index": "^TWII",
+        "sectors": {
+            "Tecnología e Industria": {"2330.TW": "TSMC", "2317.TW": "Foxconn (Hon Hai)", "2454.TW": "MediaTek", "2308.TW": "Delta Electronics", "2382.TW": "Quanta Computer", "2881.TW": "Fubon Financial", "2412.TW": "Chunghwa Telecom"}
+        }
+    },
+    "🇮🇳 India": {
+        "iso_alpha": "IND", "lat": 20.5, "lon": 78.9, "index": "^BSESN",
+        "sectors": {
+            "Mercado General": {"RELIANCE.NS": "Reliance Industries", "TCS.NS": "Tata Consultancy", "HDFCBANK.NS": "HDFC Bank", "INFY.NS": "Infosys", "ICICIBANK.NS": "ICICI Bank", "SBIN.NS": "State Bank of India", "BHARTIARTL.NS": "Bharti Airtel", "ITC.NS": "ITC", "HINDUNILVR.NS": "Hindustan Unilever"}
         }
     },
     "🇨🇦 Canadá": {
         "iso_alpha": "CAN", "lat": 56.0, "lon": -106.0, "index": "^GSPTSE",
         "sectors": {
             "Finanzas y Energía": {"RY.TO": "RBC", "TD.TO": "TD Bank", "ENB.TO": "Enbridge", "CNQ.TO": "Canadian Natural", "BMO.TO": "Bank of Montreal", "BNS.TO": "Scotiabank", "SU.TO": "Suncor", "TRP.TO": "TC Energy"},
-            "Tecnología y Otros": {"SHOP.TO": "Shopify", "CNR.TO": "Canadian National", "BAM.TO": "Brookfield", "CP.TO": "Canadian Pacific", "CSU.TO": "Constellation", "NTR.TO": "Nutrien"}
+            "Tecnología y Otros": {"SHOP.TO": "Shopify", "CNR.TO": "Canadian National", "BAM.TO": "Brookfield", "CP.TO": "Canadian Pacific", "CSU.TO": "Constellation", "NTR.TO": "Nutrien", "ATD.TO": "Alimentation Couche-Tard"}
         }
     },
     "🇧🇷 Brasil": {
@@ -174,10 +223,82 @@ MARKETS_BY_COUNTRY = {
             "Mercado General": {"PETR4.SA": "Petrobras", "VALE3.SA": "Vale", "ITUB4.SA": "Itaú", "BBDC4.SA": "Bradesco", "ABEV3.SA": "Ambev", "WEGE3.SA": "WEG", "B3SA3.SA": "B3", "BBAS3.SA": "Banco do Brasil", "ELET3.SA": "Eletrobras", "RENT3.SA": "Localiza", "SUZB3.SA": "Suzano", "RADL3.SA": "RaiaDrogasil"}
         }
     },
+    "🇦🇷 Argentina": {
+        "iso_alpha": "ARG", "lat": -38.4, "lon": -63.6, "index": "^MERV",
+        "sectors": {
+            "Mercado General": {"MELI": "MercadoLibre", "YPF": "YPF", "BMA": "Banco Macro", "GGAL": "Grupo Fin. Galicia", "PAM": "Pampa Energía", "TEO": "Telecom Argentina", "GLOB": "Globant", "DESP": "Despegar", "CEPU": "Central Puerto", "LOMA": "Loma Negra", "CRESY": "Cresud"}
+        }
+    },
+    "🇲🇽 México": {
+        "iso_alpha": "MEX", "lat": 23.6, "lon": -102.5, "index": "^MXX",
+        "sectors": {
+            "Mercado General": {"AMX": "América Móvil", "WALMEX.MX": "Walmart de México", "GMEXICOB.MX": "Grupo México", "FEMSAUBD.MX": "Fomento Económico", "CX": "Cemex", "GFNORTEO.MX": "Banorte", "BBAJIOO.MX": "Banco del Bajío", "KOF": "Coca-Cola FEMSA"}
+        }
+    },
+    "🇨🇱 Chile": {
+        "iso_alpha": "CHL", "lat": -35.6, "lon": -71.5, "index": "^IPSA",
+        "sectors": {
+            "Mercado General": {"SQM": "SQM", "BCH": "Banco de Chile", "ENIA": "Enel Américas", "LTM": "LATAM Airlines", "BSAC": "Banco Santander Chile", "CCU": "Compañía Cervecerías Unidas"}
+        }
+    },
+    "🇨🇴 Colombia": {
+        "iso_alpha": "COL", "lat": 4.5, "lon": -74.0, "index": "^COLCAP",
+        "sectors": {
+            "Mercado General": {"EC": "Ecopetrol", "CIB": "Bancolombia", "AVAL": "Grupo Aval"}
+        }
+    },
     "🇦🇺 Australia": {
         "iso_alpha": "AUS", "lat": -25.0, "lon": 133.0, "index": "^AXJO",
         "sectors": {
-            "Mercado General": {"BHP.AX": "BHP", "RIO.AX": "Rio Tinto", "CBA.AX": "CommBank", "CSL.AX": "CSL", "WBC.AX": "Westpac", "NAB.AX": "NAB", "ANZ.AX": "ANZ", "MQG.AX": "Macquarie", "FMG.AX": "Fortescue", "WES.AX": "Wesfarmers", "TLS.AX": "Telstra", "WOW.AX": "Woolworths"}
+            "Mercado General": {"BHP.AX": "BHP", "RIO.AX": "Rio Tinto", "CBA.AX": "CommBank", "CSL.AX": "CSL", "WBC.AX": "Westpac", "NAB.AX": "NAB", "ANZ.AX": "ANZ", "MQG.AX": "Macquarie", "FMG.AX": "Fortescue", "WES.AX": "Wesfarmers", "TLS.AX": "Telstra", "WOW.AX": "Woolworths", "WDS.AX": "Woodside", "TCL.AX": "Transurban"}
+        }
+    },
+    "🇩🇰 Dinamarca": {
+        "iso_alpha": "DNK", "lat": 56.0, "lon": 10.0, "index": "^OMXC20",
+        "sectors": {
+            "Salud e Industria": {"NVO": "Novo Nordisk", "DSV.CO": "DSV", "MAERSK-B.CO": "A.P. Moller-Maersk", "VWS.CO": "Vestas", "ORSTED.CO": "Orsted", "CARL-B.CO": "Carlsberg", "PNDORA.CO": "Pandora", "NOVOB.CO": "Novozymes"}
+        }
+    },
+    "🇸🇪 Suecia": {
+        "iso_alpha": "SWE", "lat": 60.0, "lon": 15.0, "index": "^OMX",
+        "sectors": {
+            "Industria y Tecnología": {"SPOT": "Spotify", "VOLV-B.ST": "Volvo", "ERIC-B.ST": "Ericsson", "ATCO-A.ST": "Atlas Copco", "ASSA-B.ST": "ASSA ABLOY", "HM-B.ST": "H&M", "SEB-A.ST": "SEB", "SAND.ST": "Sandvik", "EPI-A.ST": "Epiroc"}
+        }
+    },
+    "🇿🇦 Sudáfrica": {
+        "iso_alpha": "ZAF", "lat": -30.0, "lon": 25.0, "index": "^J203.JO",
+        "sectors": {
+            "Minería y Finanzas": {"NPN.JO": "Naspers", "FSR.JO": "FirstRand", "GFI.JO": "Gold Fields", "AGL.JO": "Anglo American SA", "SBK.JO": "Standard Bank", "MTN.JO": "MTN Group", "VOD.JO": "Vodacom"}
+        }
+    },
+    "🇮🇱 Israel": {
+        "iso_alpha": "ISR", "lat": 31.0, "lon": 35.0, "index": "^TA125.TA",
+        "sectors": {
+            "Tecnología y Ciberseguridad": {"CHKP": "Check Point", "TEVA": "Teva Pharma", "CYBR": "CyberArk", "WIX": "Wix", "MNDY": "monday.com", "NICE": "NICE Systems", "FVRR": "Fiverr"}
+        }
+    },
+    "🇸🇬 Singapur": {
+        "iso_alpha": "SGP", "lat": 1.3, "lon": 103.8, "index": "^STI",
+        "sectors": {
+            "Finanzas y Consumo": {"SE": "Sea Ltd", "D05.SI": "DBS Group", "O39.SI": "OCBC Bank", "U11.SI": "UOB", "Z74.SI": "Singtel", "C52.SI": "ComfortDelGro", "GRAB": "Grab"}
+        }
+    },
+    "🇮🇩 Indonesia": {
+        "iso_alpha": "IDN", "lat": -2.0, "lon": 118.0, "index": "^JKSE",
+        "sectors": {
+            "Banca y Telecomunicaciones": {"BBCA.JK": "Bank Central Asia", "BBRI.JK": "Bank Rakyat", "TLKM.JK": "Telkom Indonesia", "BMRI.JK": "Bank Mandiri", "ASII.JK": "Astra International"}
+        }
+    },
+    "🇵🇹 Portugal": {
+        "iso_alpha": "PRT", "lat": 39.5, "lon": -8.0, "index": "^PSI20",
+        "sectors": {
+            "Energía y Consumo": {"EDP.LS": "EDP Renováveis", "GALP.LS": "Galp Energia", "JMT.LS": "Jerónimo Martins", "BCP.LS": "Banco Comercial Português", "SON.LS": "Sonae"}
+        }
+    },
+    "🇮🇪 Irlanda": {
+        "iso_alpha": "IRL", "lat": 53.0, "lon": -8.0, "index": "^ISEQ",
+        "sectors": {
+            "Multinacionales y Aviación": {"ACN": "Accenture", "RYAAY": "Ryanair", "CRH": "CRH PLC", "FLTR.L": "Flutter Ent", "STX": "Seagate", "EAT": "Brinker (Eat)"}
         }
     }
 }
@@ -243,7 +364,17 @@ def set_ticker(t):
     st.session_state["ticker_input"] = t
 
 st.sidebar.markdown("### 🔍 Buscar Acción")
-ticker_input = st.sidebar.text_input(" ", placeholder="Escribe un ticker (Ej: AAPL)", key="ticker_input", label_visibility="collapsed")
+ticker_input = st.sidebar.text_input(" ", placeholder="Escribe ticker o nombre...", key="ticker_input", label_visibility="collapsed")
+
+if ticker_input and len(ticker_input) > 1:
+    search_res = search_ticker_by_name(ticker_input)
+    if search_res and search_res[0]["symbol"].upper() != ticker_input.upper():
+        st.sidebar.markdown("<p style='font-size:0.8rem; opacity:0.7; margin-bottom:5px; margin-top:-10px;'>¿Querías decir...?</p>", unsafe_allow_html=True)
+        for r in search_res:
+            st.sidebar.button(f"**{r['symbol']}** · {r['name'][:22]}", key=f"src_{r['symbol']}", on_click=set_ticker, args=(r['symbol'],), use_container_width=True)
+        st.sidebar.divider()
+        st.stop()
+
 st.sidebar.button("🌍 Explorador de Mercados", use_container_width=True, on_click=set_ticker, args=("",))
 
 st.sidebar.divider()
@@ -500,8 +631,13 @@ pct_change = info.get('regularMarketChangePercent', 0)
 chg_color = color_up if pct_change >= 0 else color_down
 sign = "+" if pct_change >= 0 else ""
 
-div_yield = info.get("dividendYield", 0)
+div_rate = info.get("dividendRate") or info.get("trailingAnnualDividendRate", 0)
+if div_rate and price and price > 0:
+    div_yield = div_rate / price
+else:
+    div_yield = info.get("dividendYield") or info.get("trailingAnnualDividendYield", 0)
 if div_yield is None: div_yield = 0
+if div_yield > 1.0: div_yield = div_yield / 100.0
 div_str = f"{div_yield*100:.2f}%" if div_yield > 0 else "0%"
 
 net_cash = info.get("totalCash", 0) - info.get("totalDebt", 0)
@@ -532,8 +668,8 @@ st.markdown(f"""
 st.caption(f"{sector} · {industry} · {country} · Cap: {fmt_big(mkt_cap)}")
 
 # ── Tabs ──
-tab_chart, tab_ta, tab_fin, tab_dcf, tab_comp, tab_thesis, tab_backtest, tab_mc, tab_port = st.tabs([
-    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", "💰 Valoración DCF", "⚖️ Comparativa", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera"
+tab_chart, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port = st.tabs([
+    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", "💰 Centro de Valoración", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera"
 ])
 
 # ── Tab 1: Chart ──
@@ -780,15 +916,21 @@ with tab_fin:
         st.markdown(f"<p style='text-align: center; color: var(--primary-color); font-weight: 600;'>Crecimiento Histórico de Ingresos (CAGR): +{cagr:.1f}% anual</p>", unsafe_allow_html=True)
 
 
-# ── Tab 4: DCF Valuation ──
-with tab_dcf:
-    fcfs_pos = [f for f in fcf_row if f and f > 0]
-    last_fcf = fcfs_pos[0] if fcfs_pos else 0
-    if len(fcfs_pos) >= 2:
-        calc_growth = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.25))
-    else:
-        calc_growth = 0.08
+# ── Tab 4: Centro de Valoración ──
+with tab_val:
+    st.markdown("### 🏛️ Modelos de Valoración (Fair Value)")
+    
+    val_method = st.radio("Selecciona Modelo Matemático", 
+                          ["Descuento de Flujos (DCF)", "Fórmula de Graham", "Earning Power Value (EPV)", "Modelo de Dividendos (DDM)", "Múltiplos (Comparativa)"], 
+                          horizontal=True, label_visibility="collapsed")
+    st.divider()
 
+    # Pre-calculate common variables
+    net_income = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
+    ebit = income.iloc[:, 0].get("EBIT", 0) if not income.empty else 0
+    ebitda = income.iloc[:, 0].get("EBITDA", 0) if not income.empty else 0
+    revenue = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty else 0
+    
     risk_free = get_risk_free_rate_v2()
     market_prem = 0.055
     ke = risk_free + beta * market_prem
@@ -822,26 +964,7 @@ with tab_dcf:
     kd = (interest_exp / total_debt) if total_debt > 0 and interest_exp > 0 else 0.05
     kd = min(max(kd, 0.02), 0.15)
     calc_wacc = (equity_val / total_cap) * ke + (total_debt / total_cap) * kd * (1 - tax_rate) if total_cap > 0 else 0.10
-    calc_terminal_g = 0.025
-
-    col_w, col_g, col_tg = st.columns(3)
-    user_wacc = col_w.slider("WACC (%)", min_value=2.0, max_value=25.0, value=float(calc_wacc*100), step=0.1, help="Coste Promedio Ponderado de Capital. Es el rendimiento MÍNIMO que los inversores exigen por asumir el riesgo de invertir aquí. A mayor riesgo, mayor WACC (lo que hace que la valoración baje).") / 100.0
-    user_growth = col_g.slider("Crecimiento Corto Plazo (%)", min_value=-15.0, max_value=50.0, value=float(calc_growth*100), step=0.5, help="Estimación de cuánto crecerán los flujos de caja libre en los próximos 5 años. Á.L.V.A.R.O. te propone un valor inicial basándose en la tendencia histórica de la empresa.") / 100.0
-    user_term_g = col_tg.slider("Crecimiento Terminal (%)", min_value=0.0, max_value=6.0, value=float(calc_terminal_g*100), step=0.1, help="Tasa a la que crecerá la empresa eternamente tras el año 5. Nunca debe ser mayor que el crecimiento histórico del PIB global (2-3%), porque ninguna empresa puede crecer más rápido que el mundo para siempre.") / 100.0
-
-    wacc, growth, terminal_g = user_wacc, user_growth, user_term_g
-    proj_years = 5
-    proj_fcf, disc_fcf = [], []
-    for i in range(1, proj_years + 1):
-        f = last_fcf * (1 + growth) ** i
-        d = f / (1 + wacc) ** i
-        proj_fcf.append(f)
-        disc_fcf.append(d)
-
-    tv = (proj_fcf[-1] * (1 + terminal_g)) / (wacc - terminal_g) if wacc > terminal_g else 0
-    pv_tv = tv / (1 + wacc) ** proj_years
-    ev_dcf = sum(disc_fcf) + pv_tv
-
+    
     cash = 0
     if not balance.empty:
         for key in ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"]:
@@ -849,153 +972,205 @@ with tab_dcf:
                 v = balance.iloc[:, 0].get(key, 0)
                 cash = v if pd.notna(v) else 0
                 break
-
     net_debt = total_debt - cash
-    equity_value = ev_dcf - net_debt
-    dcf_price = equity_value / shares_out if shares_out else 0
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Enterprise Value", fmt_big(ev_dcf), help="Es el valor total de la empresa generado por sus flujos de caja futuros descontados al presente. Es el 'precio teórico' de comprar la empresa entera hoy.")
-    c2.metric("Deuda Neta", fmt_big(net_debt), help="Es la deuda total de la empresa menos el dinero en efectivo que tiene en el banco. Si es negativa, la empresa tiene más dinero del que debe (muy sano).")
-    c3.metric("Equity Value", fmt_big(equity_value), help="Es el valor que realmente pertenece a los accionistas (Enterprise Value menos la Deuda Neta).")
-    c4.metric("Valor por Acción (DCF)", f"{sym}{dcf_price:,.2f}", help="Es el 'Precio Justo' teórico de una sola acción según los cálculos matemáticos del DCF. Compáralo con el precio real para ver si está cara o barata.")
-    
-    st.divider()
-    
-    st.markdown("### Matriz de Sensibilidad DCF")
-    st.markdown("<p style='font-size:0.85rem; opacity:0.6; margin-top:-10px;'>Simulación del Precio Justo variando el Coste de Capital (WACC) y el Crecimiento Terminal. Te protege contra proyecciones demasiado optimistas.</p>", unsafe_allow_html=True)
-    
-    wacc_vars = [max(0.01, wacc - 0.02), wacc, wacc + 0.02]
-    tg_vars = [max(0.0, terminal_g - 0.01), terminal_g, terminal_g + 0.01]
-    
-    matrix_data = []
-    for w in wacc_vars:
-        row = []
-        for tg in tg_vars:
-            tv_sim = (proj_fcf[-1] * (1 + tg)) / (w - tg) if w > tg else 0
-            pv_tv_sim = tv_sim / (1 + w) ** proj_years
-            ev_sim = sum([f / (1 + w)**(idx+1) for idx, f in enumerate(proj_fcf)]) + pv_tv_sim
-            eq_sim = ev_sim - net_debt
-            row.append(eq_sim / shares_out if shares_out else 0)
-        matrix_data.append(row)
-        
-    df_matrix = pd.DataFrame(matrix_data, 
-                             index=[f"WACC {w*100:.1f}%" for w in wacc_vars], 
-                             columns=[f"Term G. {tg*100:.1f}%" for tg in tg_vars])
-    
-    # Custom color scale matching the app vibe
-    custom_colors = [[0, "rgba(255, 61, 0, 0.8)"], [0.5, "rgba(128, 128, 128, 0.2)"], [1, "rgba(0, 200, 83, 0.8)"]]
-    fig_matrix = px.imshow(df_matrix, text_auto=".2f", color_continuous_scale=custom_colors, aspect="auto")
-    fig_matrix.update_layout(height=220, margin=dict(l=0,r=0,t=10,b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="JetBrains Mono"))
-    fig_matrix.update_xaxes(side="top")
-    st.plotly_chart(fig_matrix, use_container_width=True, config={'displayModeBar': False})
-    
-    st.divider()
-    
-    # Valuation Summary integrated here for minimalism
-    net_income = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
-    ebit = income.iloc[:, 0].get("EBIT", 0) if not income.empty else 0
-    methods = [("DCF", dcf_price)]
-    
-    bvps = total_equity_bs / shares_out if shares_out else 0
-    if bvps > 0: methods.append(("Valor Contable", bvps))
-    eps = net_income / shares_out if shares_out and net_income else 0
-    if eps > 0 and bvps > 0: methods.append(("Nº Graham", np.sqrt(22.5 * eps * bvps)))
-    op_income = ebit or 0
-    if op_income > 0 and wacc > 0:
-        epv_ps = ((op_income * 0.75) / wacc - net_debt) / shares_out
-        if epv_ps > 0: methods.append(("EPV", epv_ps))
-        
-    avg_val = np.mean([v for _, v in methods])
-    upside = (avg_val - price) / price if price else 0
+    if val_method == "Descuento de Flujos (DCF)":
+        fcfs_pos = [f for f in fcf_row if f and f > 0]
+        last_fcf = fcfs_pos[0] if fcfs_pos else 0
+        if len(fcfs_pos) >= 2:
+            calc_growth = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.25))
+        else:
+            calc_growth = 0.08
 
-    st.markdown("### Resumen Valoración Justa (Fair Value)")
-    cc1, cc2 = st.columns([3, 1])
-    with cc1:
-        cols = st.columns(len(methods))
-        for i, (m_name, m_val) in enumerate(methods):
-            u = (m_val - price) / price if price else 0
-            helps = {
-                "DCF": "Basado en la proyección de flujos de caja libre futuros descontados al presente.",
-                "Valor Contable": "Lo que quedaría si la empresa cerrara hoy, vendiera todo y pagara sus deudas. Es el valor más conservador.",
-                "Nº Graham": "Fórmula de Benjamin Graham para encontrar acciones defensivas e infravaloradas.",
-                "EPV": "Earning Power Value: Valor basado únicamente en los beneficios actuales reales, sin asumir ningún crecimiento futuro."
-            }
-            cols[i].metric(m_name, f"{sym}{m_val:,.2f}", help=helps.get(m_name, ""))
-    with cc2:
-        val_color = color_up if upside > 0 else color_down
-        st.markdown(f"""
-            <div class="glow-hover" style="background: rgba(128,128,128,0.1); border-radius: 12px; padding: 16px; text-align: center;">
-                <div style="font-size: 12px; text-transform: uppercase; opacity: 0.7; margin-bottom: 5px;">Valor Medio</div>
-                <div style="font-size: 2rem; font-weight: 700;">{sym}{avg_val:,.2f}</div>
-                <div style="color: {val_color}; font-weight: 600;">{'POTENCIAL' if upside>0 else 'SOBREVAL.'} {abs(upside)*100:.1f}%</div>
-            </div>
-        """, unsafe_allow_html=True)
+        calc_terminal_g = 0.025
 
+        col_w, col_g, col_tg = st.columns(3)
+        user_wacc = col_w.slider("WACC (%)", min_value=2.0, max_value=25.0, value=float(calc_wacc*100), step=0.1, help="Coste Promedio Ponderado de Capital.") / 100.0
+        user_growth = col_g.slider("Crecimiento Corto Plazo (%)", min_value=-15.0, max_value=50.0, value=float(calc_growth*100), step=0.5) / 100.0
+        user_term_g = col_tg.slider("Crecimiento Terminal (%)", min_value=0.0, max_value=6.0, value=float(calc_terminal_g*100), step=0.1) / 100.0
 
-# ── Tab 5: Multiples & Comparables ──
-with tab_comp:
-    ebitda = income.iloc[:, 0].get("EBITDA", 0) if not income.empty else 0
-    revenue = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty else 0
-    ev = mkt_cap + net_debt
+        wacc, growth, terminal_g = user_wacc, user_growth, user_term_g
+        proj_years = 5
+        proj_fcf, disc_fcf = [], []
+        for i in range(1, proj_years + 1):
+            f = last_fcf * (1 + growth) ** i
+            d = f / (1 + wacc) ** i
+            proj_fcf.append(f)
+            disc_fcf.append(d)
 
-    cols = st.columns(4)
-    multiples_data = [
-        ("P/E", mkt_cap / net_income if net_income and net_income > 0 else None, "Price to Earnings: Cuántos años tardarías en recuperar tu inversión con los beneficios actuales. Valores bajos suelen indicar acciones baratas."),
-        ("EV/EBITDA", ev / ebitda if ebitda and ebitda > 0 else None, "Mide el valor de la empresa frente a su rentabilidad bruta. Muy útil para comparar empresas con distinta deuda. <10x suele ser positivo."),
-        ("EV/EBIT", ev / ebit if ebit and ebit > 0 else None, "Similar al EV/EBITDA pero descontando amortizaciones. Muy usado por inversores Value como Joel Greenblatt."),
-        ("EV/Revenue", ev / revenue if revenue and revenue > 0 else None, "Valor frente a ventas. Útil para valorar empresas tecnológicas o de alto crecimiento que aún no dan beneficios netos."),
-    ]
-    for i, (name_m, val, h_text) in enumerate(multiples_data):
-        cols[i].metric(name_m, f"{val:.1f}x" if val else "N/A", help=h_text)
+        tv = (proj_fcf[-1] * (1 + terminal_g)) / (wacc - terminal_g) if wacc > terminal_g else 0
+        pv_tv = tv / (1 + wacc) ** proj_years
+        ev_dcf = sum(disc_fcf) + pv_tv
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    comp_input = st.text_input("Competidores (separados por coma)", placeholder="Ej: PEP, KDP, MNST")
-    if comp_input:
-        comp_tickers = [c.strip().upper() for c in comp_input.split(",") if c.strip()]
-        comp_list = [{"Ticker": ticker, "P/E": multiples_data[0][1], "EV/EBITDA": multiples_data[1][1], "EV/Rev": multiples_data[3][1]}]
-        
-        with st.spinner("Cargando competidores..."):
-            for ct in comp_tickers:
-                try:
-                    cti = yf.Ticker(ct).info
-                    comp_list.append({
-                        "Ticker": ct, 
-                        "P/E": cti.get("trailingPE"), 
-                        "EV/EBITDA": cti.get("enterpriseToEbitda"), 
-                        "EV/Rev": cti.get("enterpriseToRevenue")
-                    })
-                except: pass
-        
-        df_comp = pd.DataFrame(comp_list).set_index("Ticker")
-        st.dataframe(df_comp.style.format("{:.2f}x", na_rep="N/A"), use_container_width=True)
+        equity_value = ev_dcf - net_debt
+        dcf_price = equity_value / shares_out if shares_out else 0
 
-    st.divider()
-    st.markdown("### 🥊 Fuerza Relativa (vs S&P 500)")
-    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>¿Está la acción batiendo al mercado global este periodo?</p>", unsafe_allow_html=True)
-    
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def get_sp500(per):
-        try: return yf.Ticker("^GSPC").history(period=per)
-        except: return pd.DataFrame()
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Enterprise Value", fmt_big(ev_dcf), help="Valor teórico total de la empresa.")
+        c2.metric("Deuda Neta", fmt_big(net_debt), help="Deuda total menos caja.")
+        c3.metric("Equity Value", fmt_big(equity_value), help="Valor para los accionistas.")
+        c4.metric("Valor Justo (DCF)", f"{sym}{dcf_price:,.2f}", help="Precio intrínseco por acción.")
         
-    sp500_hist = get_sp500(chart_period)
-    if not sp500_hist.empty and not hist.empty:
-        base_stock = hist['Close'].iloc[0]
-        base_sp = sp500_hist['Close'].iloc[0]
+        st.divider()
+        st.markdown("#### Matriz de Sensibilidad DCF")
+        wacc_vars = [max(0.01, wacc - 0.02), wacc, wacc + 0.02]
+        tg_vars = [max(0.0, terminal_g - 0.01), terminal_g, terminal_g + 0.01]
         
-        norm_stock = (hist['Close'] / base_stock) * 100
-        norm_sp = (sp500_hist['Close'] / base_sp) * 100
+        matrix_data = []
+        for w in wacc_vars:
+            row = []
+            for tg in tg_vars:
+                tv_sim = (proj_fcf[-1] * (1 + tg)) / (w - tg) if w > tg else 0
+                pv_tv_sim = tv_sim / (1 + w) ** proj_years
+                ev_sim = sum([f / (1 + w)**(idx+1) for idx, f in enumerate(proj_fcf)]) + pv_tv_sim
+                eq_sim = ev_sim - net_debt
+                row.append(eq_sim / shares_out if shares_out else 0)
+            matrix_data.append(row)
+            
+        df_matrix = pd.DataFrame(matrix_data, index=[f"WACC {w*100:.1f}%" for w in wacc_vars], columns=[f"Term G. {tg*100:.1f}%" for tg in tg_vars])
+        custom_colors = [[0, "rgba(255, 61, 0, 0.8)"], [0.5, "rgba(128, 128, 128, 0.2)"], [1, "rgba(0, 200, 83, 0.8)"]]
+        fig_matrix = px.imshow(df_matrix, text_auto=".2f", color_continuous_scale=custom_colors, aspect="auto")
+        fig_matrix.update_layout(height=220, margin=dict(l=0,r=0,t=10,b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="JetBrains Mono"))
+        fig_matrix.update_xaxes(side="top")
+        st.plotly_chart(fig_matrix, use_container_width=True, config={'displayModeBar': False})
+
+    elif val_method == "Fórmula de Graham":
+        eps = net_income / shares_out if shares_out and net_income else 0
+        if eps > 0:
+            st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-bottom: 20px;'>Fórmula revisada de Benjamin Graham para valorar empresas estables: <b>V = (EPS × (8.5 + 2g) × 4.4) / Y</b></p>", unsafe_allow_html=True)
+            col_g_eps, col_g_g, col_g_y = st.columns(3)
+            
+            # Estimate historical growth for Graham
+            fcfs_pos = [f for f in fcf_row if f and f > 0]
+            if len(fcfs_pos) >= 2:
+                calc_g_graham = max(0.02, min((fcfs_pos[0] / fcfs_pos[-1]) ** (1 / (len(fcfs_pos) - 1)) - 1, 0.25))
+            else:
+                calc_g_graham = 0.05
+                
+            g_g = col_g_g.slider("Crecimiento a 5 años (g) [%]", 0.0, 30.0, float(calc_g_graham*100))
+            g_y = col_g_y.slider("Rendimiento Bono Corporativo AAA (Y) [%]", 1.0, 10.0, float(risk_free*100 + 1.0))
+            
+            graham_val = (eps * (8.5 + 2 * (g_g)) * 4.4) / g_y
+            upside_g = (graham_val - price) / price if price else 0
+            
+            c_g1, c_g2 = st.columns(2)
+            c_g1.metric("Valor Intrínseco de Graham", f"{sym}{graham_val:,.2f}")
+            c_g2.metric("Potencial / Margen Seguridad", f"{upside_g*100:.1f}%")
+            
+            # Defensive Graham Number
+            bvps = total_equity_bs / shares_out if shares_out else 0
+            if bvps > 0:
+                graham_num = np.sqrt(22.5 * eps * bvps)
+                st.divider()
+                st.info(f"💡 **Número de Graham (Defensivo): {sym}{graham_num:,.2f}**. Es el precio máximo absoluto que pagaría un inversor ultraconservador para asegurar el valor de los activos físicos de la empresa.")
+        else:
+            st.warning("La empresa no tiene beneficios netos positivos (EPS < 0). La fórmula de Graham exige que la empresa sea rentable.")
+
+    elif val_method == "Earning Power Value (EPV)":
+        if ebit > 0:
+            st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-bottom: 20px;'>Desarrollado por Bruce Greenwald, valora la empresa basándose estrictamente en su capacidad ACTUAL de generar dinero, <b>asumiendo que nunca más crecerá</b>. Ideal para inversores muy conservadores.</p>", unsafe_allow_html=True)
+            
+            ce1, ce2 = st.columns(2)
+            epv_mgn = ce1.slider("Margen Operativo Ajustado (%)", 1.0, 50.0, float((ebit/revenue)*100) if revenue else 10.0) / 100.0
+            epv_wacc = ce2.slider("WACC / Tasa de Descuento (%)", 2.0, 20.0, float(calc_wacc*100)) / 100.0
+            
+            adj_earnings = (revenue * epv_mgn) * (1 - tax_rate)
+            epv_val = (adj_earnings / epv_wacc) - net_debt
+            epv_price = epv_val / shares_out if shares_out else 0
+            upside_epv = (epv_price - price) / price if price else 0
+            
+            c_e1, c_e2, c_e3 = st.columns(3)
+            c_e1.metric("Beneficio Operativo Ajustado", fmt_big(adj_earnings))
+            c_e2.metric("Valor Justo (Crecimiento Cero)", f"{sym}{epv_price:,.2f}")
+            c_e3.metric("Potencial", f"{upside_epv*100:.1f}%")
+            
+            if upside_epv > 0:
+                st.success("¡Excelente! El precio de la acción es menor que el EPV. Esto significa que estás comprando todo el crecimiento futuro de esta empresa completamente gratis.")
+            else:
+                st.info("El precio es mayor que el EPV. Esto es normal; significa que el mercado está pagando un extra (una prima) porque confía en que la empresa va a seguir creciendo en el futuro.")
+        else:
+            st.warning("La empresa tiene pérdidas operativas (EBIT < 0). El EPV asume beneficios constantes, por lo que no puede aplicarse aquí.")
+
+    elif val_method == "Modelo de Dividendos (DDM)":
+        if div_yield > 0:
+            div_amount = price * div_yield
+            st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-bottom: 20px;'>Modelo de Crecimiento de Gordon (Gordon Growth Model). Valora la empresa proyectando los dividendos futuros hasta el infinito.</p>", unsafe_allow_html=True)
+            
+            cd1, cd2 = st.columns(2)
+            d_g = cd1.slider("Crecimiento Anual del Dividendo (%)", 0.0, 15.0, 3.0) / 100.0
+            d_ke = cd2.slider("Retorno Exigido por el Inversor (Ke) (%)", 2.0, 25.0, float(ke*100)) / 100.0
+            
+            if d_ke > d_g:
+                ddm_val = (div_amount * (1 + d_g)) / (d_ke - d_g)
+                upside_ddm = (ddm_val - price) / price if price else 0
+                
+                c_d1, c_d2 = st.columns(2)
+                c_d1.metric("Valor Justo (DDM)", f"{sym}{ddm_val:,.2f}")
+                c_d2.metric("Potencial", f"{upside_ddm*100:.1f}%")
+            else:
+                st.error("Matemáticamente imposible: El Retorno Exigido (Ke) debe ser estrictamente mayor que el Crecimiento del Dividendo (g).")
+        else:
+            st.warning("Esta acción no reparte dividendos, o no se ha reportado el 'Dividend Yield'. El modelo DDM solo funciona para empresas que distribuyen caja a sus accionistas regularmente.")
+
+    elif val_method == "Múltiplos (Comparativa)":
+        ev = mkt_cap + net_debt
+        cols = st.columns(4)
+        multiples_data = [
+            ("PER", mkt_cap / net_income if net_income and net_income > 0 else None, "Price to Earnings: Cuántos años tardarías en recuperar la inversión con los beneficios netos actuales."),
+            ("EV/EBITDA", ev / ebitda if ebitda and ebitda > 0 else None, "Valor de Empresa sobre Rentabilidad Bruta. Descuenta la deuda, ideal para comparar empresas de distinto tamaño."),
+            ("EV/EBIT", ev / ebit if ebit and ebit > 0 else None, "Igual que EV/EBITDA pero descontando amortizaciones (Múltiplo de Acquirer's Multiple)."),
+            ("EV/Ventas", ev / revenue if revenue and revenue > 0 else None, "Útil para valorar empresas de alto crecimiento (Growth) que aún no generan beneficios netos."),
+        ]
+        for i, (name_m, val, h_text) in enumerate(multiples_data):
+            cols[i].metric(name_m, f"{val:.1f}x" if val else "N/A", help=h_text)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        comp_input = st.text_input("Añadir Competidores (separados por coma para comparar)", placeholder="Ej: KO, PEP, MNST")
+        if comp_input:
+            comp_tickers = [c.strip().upper() for c in comp_input.split(",") if c.strip()]
+            comp_list = [{"Ticker": ticker, "PER": multiples_data[0][1], "EV/EBITDA": multiples_data[1][1], "EV/Ventas": multiples_data[3][1]}]
+            
+            with st.spinner("Descargando métricas de competidores..."):
+                for ct in comp_tickers:
+                    try:
+                        cti = yf.Ticker(ct).info
+                        comp_list.append({
+                            "Ticker": ct, 
+                            "PER": cti.get("trailingPE"), 
+                            "EV/EBITDA": cti.get("enterpriseToEbitda"), 
+                            "EV/Ventas": cti.get("enterpriseToRevenue")
+                        })
+                    except: pass
+            
+            df_comp = pd.DataFrame(comp_list).set_index("Ticker")
+            st.dataframe(df_comp.style.format("{:.2f}x", na_rep="N/A"), use_container_width=True)
+
+        st.divider()
+        st.markdown("#### 🥊 Fuerza Relativa (vs S&P 500)")
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Compara la tendencia histórica real de esta acción contra la media del mercado global.</p>", unsafe_allow_html=True)
         
-        fig_rel = go.Figure()
-        fig_rel.add_trace(go.Scatter(x=norm_stock.index, y=norm_stock, mode='lines', name=ticker, line=dict(color='#d4af37', width=2)))
-        fig_rel.add_trace(go.Scatter(x=norm_sp.index, y=norm_sp, mode='lines', name='S&P 500', line=dict(color='rgba(255,255,255,0.4)', width=2, dash='dot')))
-        
-        fig_rel.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", hovermode="x unified", font=dict(family="Inter"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-        fig_rel.update_yaxes(title="Rendimiento Base 100", showgrid=True, gridcolor="rgba(128,128,128,0.1)")
-        fig_rel.update_xaxes(showgrid=False)
-        st.plotly_chart(fig_rel, use_container_width=True, config={'displayModeBar': False})
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def get_sp500_v2(per):
+            try: return yf.Ticker("^GSPC").history(period=per)
+            except: return pd.DataFrame()
+            
+        sp500_hist = get_sp500_v2(chart_period)
+        if not sp500_hist.empty and not hist.empty:
+            base_stock = hist['Close'].iloc[0]
+            base_sp = sp500_hist['Close'].iloc[0]
+            
+            norm_stock = (hist['Close'] / base_stock) * 100
+            norm_sp = (sp500_hist['Close'] / base_sp) * 100
+            
+            fig_rel = go.Figure()
+            fig_rel.add_trace(go.Scatter(x=norm_stock.index, y=norm_stock, mode='lines', name=ticker, line=dict(color='#d4af37', width=2)))
+            fig_rel.add_trace(go.Scatter(x=norm_sp.index, y=norm_sp, mode='lines', name='S&P 500', line=dict(color='rgba(255,255,255,0.4)', width=2, dash='dot')))
+            
+            fig_rel.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", hovermode="x unified", font=dict(family="Inter"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig_rel.update_yaxes(title="Rendimiento Base 100", showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+            fig_rel.update_xaxes(showgrid=False)
+            st.plotly_chart(fig_rel, use_container_width=True, config={'displayModeBar': False})
 
 # ── Tab 6: Tesis de Inversión ──
 with tab_thesis:
@@ -1017,13 +1192,23 @@ with tab_thesis:
             moat_text = f"🛡️ **Foso Defensivo (Moat):** Débil o inexistente. Operar con márgenes tan ajustados ({net_mgn*100:.1f}%) exige vender un volumen masivo para sobrevivir."
             
         # 2. Risk / Valuation
+        e_net_income = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
+        e_equity = mkt_cap
+        if not balance.empty:
+            for k in ["Stockholders Equity", "Total Stockholder Equity"]:
+                if k in balance.index: e_equity = balance.iloc[:, 0].get(k, 0); break
+        e_eps = e_net_income / shares_out if shares_out and e_net_income else 0
+        e_bvps = e_equity / shares_out if shares_out else 0
+        e_graham = np.sqrt(22.5 * e_eps * e_bvps) if e_eps > 0 and e_bvps > 0 else e_bvps
+        thesis_upside = (e_graham - price) / price if price else 0
+
         pe = mkt_cap / net_income if net_income and net_income > 0 else 999
-        if upside > 0.20:
-            val_txt = f"⚖️ **Margen de Seguridad:** Excelente. El mercado está deprimiendo la acción irracionalmente. Cotizando a un PER de {pe:.1f}x y con un descuento del {upside*100:.1f}%, el riesgo de pérdida a largo plazo es bajo."
-        elif upside > 0:
-            val_txt = f"⚖️ **Margen de Seguridad:** Aceptable. La acción cotiza por debajo de su valor intrínseco teórico, pero no hay un gran margen para el error en los próximos resultados trimestrales."
+        if thesis_upside > 0.20:
+            val_txt = f"⚖️ **Margen de Seguridad:** Excelente. El mercado está deprimiendo la acción irracionalmente. Cotizando a un PER de {pe:.1f}x y con un descuento del {thesis_upside*100:.1f}%, el riesgo de pérdida a largo plazo es bajo."
+        elif thesis_upside > 0:
+            val_txt = f"⚖️ **Margen de Seguridad:** Aceptable. La acción cotiza por debajo de su valor intrínseco teórico (según Graham), pero no hay un gran margen de error."
         else:
-            val_txt = f"⚖️ **Margen de Seguridad:** Inexistente. El mercado asume la perfección absoluta pagando un PER de {pe:.1f}x. Cualquier fallo en su plan de negocio futuro provocará una corrección severa."
+            val_txt = f"⚖️ **Margen de Seguridad:** Inexistente. El mercado asume la perfección pagando un PER de {pe:.1f}x. Cualquier fallo en su plan de negocio futuro provocará una corrección severa."
             
         # 3. Long Term
         cagr = 0
@@ -1242,78 +1427,139 @@ with tab_mc:
 
 # ── Tab 9: Portfolio Tracker ──
 with tab_port:
-    st.markdown("### 💼 Tu Cartera de Inversión Global")
-    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Añade acciones para visualizar el valor total de tu patrimonio en tiempo real.</p>", unsafe_allow_html=True)
+    st.markdown("### 💼 Centro de Gestión de Patrimonio")
+    st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Gestión institucional multi-activo. Visualiza tu exposición, diversificación y riesgo global.</p>", unsafe_allow_html=True)
     
     if "portfolio" not in st.session_state:
         st.session_state["portfolio"] = {}
         
-    c1, c2, c3 = st.columns([2, 1, 1])
-    port_ticker = c1.text_input("Ticker", placeholder="Ej: MSFT", label_visibility="collapsed")
-    port_shares = c2.number_input("Acciones", min_value=0.0, step=1.0, value=1.0, label_visibility="collapsed")
+    all_options = []
+    for c, data in MARKETS_BY_COUNTRY.items():
+        for sec, tks in data.get("sectors", {}).items():
+            for tk, name in tks.items():
+                all_options.append(f"{tk} - {name}")
+    all_options = sorted(list(set(all_options)))
+
+    st.markdown("<div style='background: rgba(128,128,128,0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.2); margin-bottom: 25px;'><p style='margin-top:0; margin-bottom: 15px; color: #d4af37; font-weight: 600; font-size: 0.95rem;'><i class='fas fa-shopping-cart'></i> 🛒 Terminal de Compras (Añadir Activos)</p>", unsafe_allow_html=True)
     
-    if c3.button("➕ Añadir Acción", use_container_width=True):
-        if port_ticker:
-            st.session_state["portfolio"][port_ticker.upper()] = port_shares
+    c_add1, c_add2, c_add3 = st.columns([2, 1, 1])
+    port_choice = c_add1.selectbox("Activo", options=all_options, index=None, placeholder="-- Buscar en lista global --", label_visibility="collapsed")
+    custom_add = c_add1.text_input("Ticker manual", placeholder="...o escribe un ticker manual (Ej: TSLA)", key="custom_tk", label_visibility="collapsed")
+    
+    port_shares = c_add2.number_input("Acciones a comprar", min_value=0.0, step=1.0, value=1.0, key="p_sh", label_visibility="collapsed")
+    
+    if c_add3.button("➕ Añadir a Cartera", use_container_width=True, type="primary"):
+        if custom_add and custom_add.strip():
+            tk_add = custom_add.strip().upper()
+            st.session_state["portfolio"][tk_add] = port_shares
             st.rerun()
+        elif port_choice:
+            tk_add = port_choice.split(" - ")[0].strip().upper()
+            st.session_state["portfolio"][tk_add] = port_shares
+            st.rerun()
+            
+    if c_add3.button("🗑️ Vaciar Cartera", use_container_width=True):
+        st.session_state["portfolio"] = {}
+        st.rerun()
+        
+    st.markdown("</div>", unsafe_allow_html=True)
             
     port = st.session_state["portfolio"]
     if port:
         port_data = []
         total_value = 0
         
-        with st.spinner("Calculando valoración de la cartera en tiempo real..."):
-            for t, shares in port.items():
+        with st.spinner("Sincronizando con mercado en tiempo real..."):
+            for t, shares in list(port.items()):
                 if shares > 0:
                     try:
-                        p_info = yf.Ticker(t).fast_info
+                        tk_obj = yf.Ticker(t)
+                        p_info = tk_obj.fast_info
                         p_price = p_info.last_price
                         val = p_price * shares
                         total_value += val
-                        port_data.append({"Ticker": t, "Acciones": shares, "Precio Actual": p_price, "Valor Total": val})
+                        try:
+                            name = tk_obj.info.get("shortName", t)
+                        except:
+                            name = t
+                        port_data.append({"Ticker": t, "Empresa": name, "Acciones": shares, "Precio": p_price, "Valor Total": val})
                     except: pass
+                else:
+                    del st.session_state["portfolio"][t]
                 
         if port_data:
-            st.markdown(f"<div class='glow-hover' style='background: rgba(212,175,55,0.05); border: 1px solid #d4af37; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;'><h3 style='margin:0; opacity: 0.8;'>Valor Total de la Cartera</h3><h1 style='color: #d4af37; margin:0; font-size: 3rem;'>${total_value:,.2f}</h1></div>", unsafe_allow_html=True)
+            port_data = sorted(port_data, key=lambda x: x["Valor Total"], reverse=True)
+            for d in port_data: d["Peso %"] = (d["Valor Total"] / total_value) * 100
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class='glow-hover' style='background: linear-gradient(145deg, rgba(20,20,20,1) 0%, rgba(30,30,30,1) 100%); border: 1px solid rgba(212,175,55,0.4); border-radius: 15px; padding: 35px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 25px;'>
+                <p style='font-family: "Outfit", sans-serif; font-size: 0.95rem; letter-spacing: 3px; text-transform: uppercase; color: #d4af37; margin: 0; opacity: 0.9;'>Patrimonio Líquido Total</p>
+                <h1 style='font-family: "JetBrains Mono", monospace; font-size: 4.8rem; font-weight: 300; margin: 5px 0; color: #ffffff; text-shadow: 0 0 25px rgba(212,175,55,0.25); letter-spacing: -2px;'>
+                    <span style='color: #d4af37; opacity: 0.8;'>$</span>{total_value:,.2f}
+                </h1>
+                <p style='font-size: 0.8rem; opacity: 0.5; margin: 0; letter-spacing: 1px;'>ACTUALIZADO EN TIEMPO REAL</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             df_port = pd.DataFrame(port_data).set_index("Ticker")
             
-            c_port1, c_port2 = st.columns([1, 1])
+            c_port1, c_port2 = st.columns([1.3, 1])
             with c_port1:
-                premium_colors = ['#d4af37', '#b38d22', '#f9e596', '#8a6e1c', '#e2c764', '#594611', '#fff']
+                st.markdown("<h4 style='color: #d4af37;'>📑 Desglose de Activos</h4>", unsafe_allow_html=True)
+                st.dataframe(
+                    df_port[["Empresa", "Acciones", "Precio", "Valor Total", "Peso %"]],
+                    column_config={
+                        "Precio": st.column_config.NumberColumn("Precio", format="$%.2f"),
+                        "Valor Total": st.column_config.NumberColumn("Valor Total", format="$%.2f"),
+                        "Peso %": st.column_config.ProgressColumn("Peso %", format="%.1f%%", min_value=0, max_value=100)
+                    },
+                    use_container_width=True,
+                    height=320
+                )
+                
+            with c_port2:
+                st.markdown("<h4 style='color: #d4af37; text-align:center;'>🍩 Distribución de Capital</h4>", unsafe_allow_html=True)
+                neon_colors = ['#00FFFF', '#FF00FF', '#00FF00', '#FFFF00', '#FF4500', '#1E90FF', '#FF1493', '#7FFF00', '#00FA9A', '#FF0000', '#00BFFF', '#FFD700']
+                # Make sure we have enough colors by cycling
+                border_colors = [neon_colors[i % len(neon_colors)] for i in range(len(df_port))]
+                
                 fig_pie = go.Figure(data=[go.Pie(
                     labels=df_port.index, 
                     values=df_port['Valor Total'], 
-                    hole=0.75, 
-                    marker=dict(colors=premium_colors, line=dict(color='#0a0b10', width=2)),
+                    hole=0.68, 
+                    marker=dict(colors=['#0a0b10']*len(df_port), line=dict(color=border_colors, width=3)),
                     textinfo='label+percent',
                     textposition='outside',
                     hoverinfo='label+value+percent'
                 )])
                 fig_pie.update_layout(
-                    height=350, 
-                    margin=dict(l=20, r=20, t=20, b=20), 
+                    height=320, 
+                    margin=dict(l=30, r=30, t=20, b=20), 
                     paper_bgcolor="rgba(0,0,0,0)", 
                     plot_bgcolor="rgba(0,0,0,0)", 
                     font=dict(family="Inter", color="rgba(255,255,255,0.7)"),
                     showlegend=False,
-                    annotations=[dict(text="ASSET<br>ALLOCATION", x=0.5, y=0.5, font_size=12, font_color="#d4af37", showarrow=False)]
+                    annotations=[dict(text=f"{len(df_port)}<br>ACTIVOS", x=0.5, y=0.5, font_size=16, font_color="#d4af37", showarrow=False)]
                 )
                 st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
-            with c_port2:
-                st.markdown("<br><br>", unsafe_allow_html=True)
-                st.dataframe(df_port.style.format({"Precio Actual": "${:.2f}", "Valor Total": "${:.2f}"}), use_container_width=True)
             
             st.divider()
             if st.button("🎲 Simulación Monte Carlo Global de Cartera", type="primary", use_container_width=True):
                 with st.spinner("Calculando matriz de covarianza y simulando 1.000 futuros globales..."):
                     try:
                         port_hists = {}
-                        for tk, sh in port.items():
-                            if sh > 0:
-                                h_d = yf.Ticker(tk).history(period="1y")['Close']
-                                if not h_d.empty:
-                                    port_hists[tk] = h_d
+                        valid_tks = [tk for tk, sh in port.items() if sh > 0]
+                        if valid_tks:
+                            h_d = yf.download(valid_tks, period="1y", progress=False)
+                            if 'Close' in h_d:
+                                close_data = h_d['Close']
+                                if len(valid_tks) == 1:
+                                    port_hists[valid_tks[0]] = close_data.dropna()
+                                else:
+                                    for tk in valid_tks:
+                                        if tk in close_data.columns:
+                                            port_hists[tk] = close_data[tk].dropna()
                                     
                         if len(port_hists) > 0:
                             df_p = pd.DataFrame(port_hists).ffill().bfill()
@@ -1340,13 +1586,19 @@ with tab_port:
                             final_p = paths_p[-1]
                             p5_p = np.percentile(final_p, 5)
                             p95_p = np.percentile(final_p, 95)
-                            prob_loss = (final_p < total_value).mean() * 100
+                            prob_gain = (final_p > total_value).mean() * 100
+                            prob_loss_20 = (final_p < (total_value * 0.80)).mean() * 100
                             
                             st.markdown(f"#### 🔮 Proyección a 1 Año (Diversificada)")
                             c_m1, c_m2, c_m3 = st.columns(3)
-                            c_m1.metric("Peor Escenario (P5)", f"${p5_p:,.2f}")
-                            c_m2.metric("Promedio Esperado", f"${np.mean(final_p):,.2f}")
-                            c_m3.metric("Mejor Escenario (P95)", f"${p95_p:,.2f}")
+                            c_m1.metric("Prob. Ganancia (1 Año)", f"{prob_gain:.1f}%", help="Porcentaje de los 1.000 futuros en los que cerrarías el año con dinero extra.")
+                            c_m2.metric("Prob. Caída Severa (>20%)", f"{prob_loss_20:.1f}%", help="Tail Risk de la Cartera. Probabilidad de sufrir un crash fuerte.")
+                            c_m3.metric("Valor Promedio Esperado", f"${np.mean(final_p):,.2f}", help="La media matemática de los 1.000 escenarios.")
+                            
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            c_m4, c_m5 = st.columns(2)
+                            c_m4.metric("Peor Escenario (Percentil 5)", f"${p5_p:,.2f}", help="En el 95% de los escenarios, ganarás más dinero que esto.")
+                            c_m5.metric("Mejor Escenario (Percentil 95)", f"${p95_p:,.2f}", help="Escenario hiper-optimista (solo un 5% de probabilidad de superarlo).")
                             
                             fig_pmc = go.Figure()
                             for i in range(50):
@@ -1355,7 +1607,17 @@ with tab_port:
                             fig_pmc.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
                             st.plotly_chart(fig_pmc, use_container_width=True, config={'displayModeBar': False})
                             
-                            st.info(f"Probabilidad estadística de perder dinero este año con la cartera actual: **{prob_loss:.1f}%**")
+                            verdicto = "riesgo aceptable" if prob_loss_20 < 15 else "riesgo MUY ALTO"
+                            st.markdown(f"""
+                            <div class='glow-hover' style='background: rgba(128,128,128,0.05); border: 1px solid rgba(212,175,55,0.3); border-radius: 8px; padding: 20px;'>
+                                <h4 style='color: #d4af37; margin-top: 0;'>🤖 Interpretación de Cartera de Á.L.V.A.R.O.</h4>
+                                <p style='font-size: 0.9rem; line-height: 1.5; margin-bottom: 0;'>
+                                Al combinar la volatilidad de todos tus activos, tienes un <b>{prob_gain:.1f}% de posibilidades</b> de terminar el año ganando dinero. 
+                                Tu "red de seguridad" (el peor escenario estadístico probable) dejaría tu cartera en <b>${p5_p:,.2f}</b>, mientras que el techo optimista la dispararía a <b>${p95_p:,.2f}</b>. 
+                                Dado que hay un {prob_loss_20:.1f}% de probabilidad de sufrir una caída drástica (>20%), consideramos que es una cartera de <b>{verdicto}</b>.
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"Error en simulación: {e}")
 
@@ -1370,19 +1632,39 @@ with tab_port:
 if ticker and not income.empty:
     st.sidebar.divider()
     st.sidebar.markdown("### 📥 Generar Informe")
+    
+    # Calculate robust metrics for export report
+    e_net_income = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
+    e_ebitda = income.iloc[:, 0].get("EBITDA", 0) if not income.empty else 0
+    e_total_debt, e_cash, e_equity = 0, 0, mkt_cap
+    if not balance.empty:
+        for k in ["Total Debt", "Long Term Debt"]:
+            if k in balance.index: e_total_debt = balance.iloc[:, 0].get(k, 0); break
+        for k in ["Cash And Cash Equivalents"]:
+            if k in balance.index: e_cash = balance.iloc[:, 0].get(k, 0); break
+        for k in ["Stockholders Equity"]:
+            if k in balance.index: e_equity = balance.iloc[:, 0].get(k, 0); break
+            
+    e_net_debt = e_total_debt - e_cash
+    e_ev = mkt_cap + e_net_debt
+    e_eps = e_net_income / shares_out if shares_out and e_net_income else 0
+    e_bvps = e_equity / shares_out if shares_out else 0
+    e_graham = np.sqrt(22.5 * e_eps * e_bvps) if e_eps > 0 and e_bvps > 0 else e_bvps
+    e_upside = (e_graham - price) / price if price else 0
+
     html_export = f"""
     <html><head><meta charset="utf-8"><title>Informe {ticker}</title>
     <style>body{{font-family:'Arial',sans-serif;background:#0a0b10;color:#fff;padding:40px;}}h1,h2,h3{{color:#d4af37;}}</style>
     </head><body>
         <h1>Informe de Valoración Profesional: {name} ({ticker})</h1>
         <h2>Precio Actual en Mercado: {sym}{price:,.2f}</h2>
-        <h2>Valor Teórico Calculado (Fair Value): {sym}{avg_val:,.2f}</h2>
-        <h3 style="color:{color_up if upside>0 else color_down};">POTENCIAL ESTIMADO: {abs(upside)*100:.1f}% {'ALCISTA' if upside>0 else 'BAJISTA'}</h3>
+        <h2>Valor Justo Defensivo (Graham): {sym}{e_graham:,.2f}</h2>
+        <h3 style="color:{color_up if e_upside>0 else color_down};">POTENCIAL ESTIMADO: {abs(e_upside)*100:.1f}% {'ALCISTA' if e_upside>0 else 'BAJISTA'}</h3>
         <hr>
         <h3>Múltiplos Clave</h3>
         <ul>
-            <li>PER (Price/Earnings): {mkt_cap/net_income if net_income and net_income > 0 else 0:.1f}x</li>
-            <li>EV/EBITDA: {ev/ebitda if ebitda and ebitda > 0 else 0:.1f}x</li>
+            <li>PER (Price/Earnings): {mkt_cap/e_net_income if e_net_income and e_net_income > 0 else 0:.1f}x</li>
+            <li>EV/EBITDA: {e_ev/e_ebitda if e_ebitda and e_ebitda > 0 else 0:.1f}x</li>
         </ul>
         <br><br><p style="opacity:0.5;">Generado por motor de Inteligencia Financiera Á.L.V.A.R.O. | ValuationPro</p>
     </body></html>
@@ -1409,15 +1691,16 @@ if ticker and not income.empty:
     st.sidebar.divider()
     st.sidebar.markdown("### 🤖 Á.L.V.A.R.O. Resumen Ejecutivo")
     
-    margin_text = "márgenes muy rentables" if (ebitda/revenue if revenue and revenue>0 else 0) > 0.20 else "márgenes algo ajustados"
-    val_text = "con descuento frente a su precio justo (potencial alcista)" if upside > 0 else "con prima (algo cara frente a su valor teórico)"
+    e_revenue = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty else 0
+    margin_text = "márgenes muy rentables" if (e_ebitda/e_revenue if e_revenue and e_revenue>0 else 0) > 0.20 else "márgenes algo ajustados"
+    val_text = "con descuento frente a su precio justo (potencial alcista)" if e_upside > 0 else "con prima (algo cara frente a su valor teórico)"
     tech_text = "en tendencia alcista a corto plazo" if (hist['Close'].iloc[-1] > hist['SMA_50'].iloc[-1] if not hist.empty and 'SMA_50' in hist else True) else "en tendencia bajista"
     
-    ai_summary = f"**{name}** opera en el sector de *{sector}*. Actualmente muestra {margin_text} y, según nuestro modelo DCF, la acción cotiza {val_text}. Desde el punto de vista técnico, se encuentra {tech_text}. "
+    ai_summary = f"**{name}** opera en el sector de *{sector}*. Actualmente muestra {margin_text} y, según nuestro análisis conservador, la acción cotiza {val_text}. Desde el punto de vista técnico, se encuentra {tech_text}. "
     
-    if upside > 0.15:
+    if e_upside > 0.15:
         ai_summary += "💡 **Veredicto:** Oportunidad clara de inversión a largo plazo según fundamentales."
-    elif upside < -0.15:
+    elif e_upside < -0.15:
         ai_summary += "⚠️ **Veredicto:** Precaución. Riesgo alto de sobrevaloración fundamental."
     else:
         ai_summary += "⚖️ **Veredicto:** Valoración justa. Buscar puntos de entrada tácticos mediante el gráfico."
