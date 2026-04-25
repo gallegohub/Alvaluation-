@@ -106,76 +106,78 @@ MARKETS_BY_COUNTRY = {
     "🇺🇸 Estados Unidos": {
         "iso_alpha": "USA", "lat": 39.0, "lon": -98.0, "index": "^GSPC",
         "sectors": {
-            "Tecnología": {"AAPL": "Apple", "MSFT": "Microsoft", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta", "NVDA": "Nvidia", "AVGO": "Broadcom", "CSCO": "Cisco", "ADBE": "Adobe", "CRM": "Salesforce", "AMD": "AMD", "INTC": "Intel"},
-            "Finanzas": {"JPM": "JPMorgan Chase", "V": "Visa", "MA": "Mastercard", "BAC": "Bank of America", "WFC": "Wells Fargo", "GS": "Goldman Sachs", "MS": "Morgan Stanley", "AXP": "American Express"},
-            "Salud": {"UNH": "UnitedHealth", "JNJ": "Johnson & Johnson", "LLY": "Eli Lilly", "PFE": "Pfizer", "ABBV": "AbbVie", "MRK": "Merck", "TMO": "Thermo Fisher", "ABT": "Abbott"},
-            "Consumo": {"WMT": "Walmart", "PG": "Procter & Gamble", "KO": "Coca-Cola", "PEP": "PepsiCo", "COST": "Costco", "MCD": "McDonald's", "NKE": "Nike", "SBUX": "Starbucks", "HD": "Home Depot"},
-            "Energía e Industria": {"XOM": "Exxon Mobil", "CVX": "Chevron", "GE": "General Electric", "CAT": "Caterpillar", "BA": "Boeing", "RTX": "Raytheon", "LMT": "Lockheed Martin"}
+            "Tecnología": {"AAPL": "Apple", "MSFT": "Microsoft", "NVDA": "Nvidia", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta", "TSLA": "Tesla", "AVGO": "Broadcom", "TSM": "TSMC", "ASML": "ASML", "ORCL": "Oracle", "AMD": "AMD", "QCOM": "Qualcomm", "CRM": "Salesforce", "NFLX": "Netflix", "ADBE": "Adobe", "CSCO": "Cisco", "INTC": "Intel", "IBM": "IBM", "NOW": "ServiceNow", "UBER": "Uber", "INTU": "Intuit", "AMAT": "Applied Materials"},
+            "Finanzas": {"JPM": "JPMorgan", "V": "Visa", "MA": "Mastercard", "BAC": "Bank of America", "WFC": "Wells Fargo", "MS": "Morgan Stanley", "GS": "Goldman Sachs", "AXP": "American Express", "BLK": "BlackRock", "C": "Citigroup", "CB": "Chubb", "PGR": "Progressive", "CME": "CME Group"},
+            "Salud": {"UNH": "UnitedHealth", "LLY": "Eli Lilly", "JNJ": "Johnson & Johnson", "MRK": "Merck", "ABBV": "AbbVie", "TMO": "Thermo Fisher", "DHR": "Danaher", "PFE": "Pfizer", "ABT": "Abbott", "AMGN": "Amgen", "ISRG": "Intuitive Surgical", "SYK": "Stryker", "MDT": "Medtronic"},
+            "Consumo": {"WMT": "Walmart", "PG": "Procter & Gamble", "COST": "Costco", "HD": "Home Depot", "PEP": "PepsiCo", "KO": "Coca-Cola", "MCD": "McDonald's", "NKE": "Nike", "SBUX": "Starbucks", "TGT": "Target", "LOW": "Lowe's", "EL": "Estée Lauder"},
+            "Energía e Industria": {"XOM": "Exxon", "CVX": "Chevron", "COP": "ConocoPhillips", "EOG": "EOG Resources", "GE": "General Electric", "CAT": "Caterpillar", "HON": "Honeywell", "BA": "Boeing", "RTX": "Raytheon", "UNP": "Union Pacific", "UPS": "UPS", "LMT": "Lockheed Martin", "DE": "Deere"},
+            "Telecom y Real Estate": {"AMT": "American Tower", "PLD": "Prologis", "CCI": "Crown Castle", "VZ": "Verizon", "T": "AT&T", "CMCSA": "Comcast", "DIS": "Disney", "NEE": "NextEra", "DUK": "Duke Energy"}
         }
     },
     "🇪🇸 España (IBEX 35)": {
         "iso_alpha": "ESP", "lat": 40.0, "lon": -4.0, "index": "^IBEX",
         "sectors": {
             "Banca y Finanzas": {"SAN.MC": "Banco Santander", "BBVA.MC": "BBVA", "CABK.MC": "CaixaBank", "SAB.MC": "Banco Sabadell", "BKT.MC": "Bankinter", "MAP.MC": "Mapfre", "UNI.MC": "Unicaja"},
-            "Energía y Utilities": {"IBE.MC": "Iberdrola", "REP.MC": "Repsol", "NTGY.MC": "Naturgy", "ELE.MC": "Endesa", "ENG.MC": "Enagás", "RED.MC": "Redeia"},
-            "Consumo y Servicios": {"ITX.MC": "Inditex", "IAG.MC": "IAG", "MEL.MC": "Meliá Hotels", "AENA.MC": "Aena", "AMS.MC": "Amadeus", "LOG.MC": "Logista"},
-            "Industria y Construcción": {"FER.MC": "Ferrovial", "ACS.MC": "ACS", "MTS.MC": "ArcelorMittal", "ACX.MC": "Acerinox", "FDR.MC": "Fluidra", "SACY.MC": "Sacyr"},
-            "Telecos y Salud": {"TEF.MC": "Telefónica", "CLNX.MC": "Cellnex", "GRF.MC": "Grifols", "ROVI.MC": "Laboratorios Rovi"}
+            "Energía y Utilities": {"IBE.MC": "Iberdrola", "REP.MC": "Repsol", "NTGY.MC": "Naturgy", "ELE.MC": "Endesa", "ENG.MC": "Enagás", "RED.MC": "Redeia", "SLR.MC": "Solaria"},
+            "Consumo y Servicios": {"ITX.MC": "Inditex", "IAG.MC": "IAG", "MEL.MC": "Meliá Hotels", "AENA.MC": "Aena", "AMS.MC": "Amadeus", "LOG.MC": "Logista", "VIS.MC": "Viscofan"},
+            "Industria y Construcción": {"FER.MC": "Ferrovial", "ACS.MC": "ACS", "MTS.MC": "ArcelorMittal", "ACX.MC": "Acerinox", "FDR.MC": "Fluidra", "SACY.MC": "Sacyr", "FCC.MC": "FCC"},
+            "Telecos y Salud": {"TEF.MC": "Telefónica", "CLNX.MC": "Cellnex", "GRF.MC": "Grifols", "ROVI.MC": "Lab Rovi"}
         }
     },
     "🇩🇪 Alemania (DAX)": {
         "iso_alpha": "DEU", "lat": 51.0, "lon": 10.0, "index": "^GDAXI",
         "sectors": {
-            "Automoción e Industria": {"VOW3.DE": "Volkswagen", "BMW.DE": "BMW", "MBG.DE": "Mercedes-Benz", "SIE.DE": "Siemens", "AIR.DE": "Airbus", "BAS.DE": "BASF", "BAYN.DE": "Bayer"},
-            "Finanzas y Seguros": {"ALV.DE": "Allianz", "MUV2.DE": "Munich Re", "CBK.DE": "Commerzbank", "DBK.DE": "Deutsche Bank"},
-            "Tecnología y Otros": {"SAP.DE": "SAP", "IFX.DE": "Infineon", "DTE.DE": "Deutsche Telekom", "DHL.DE": "DHL Group", "ADS.DE": "Adidas"}
+            "Automoción e Industria": {"VOW3.DE": "Volkswagen", "BMW.DE": "BMW", "MBG.DE": "Mercedes-Benz", "PAH3.DE": "Porsche", "SIE.DE": "Siemens", "AIR.DE": "Airbus", "BAS.DE": "BASF", "BAYN.DE": "Bayer", "DTG.DE": "Daimler Truck"},
+            "Finanzas y Seguros": {"ALV.DE": "Allianz", "MUV2.DE": "Munich Re", "CBK.DE": "Commerzbank", "DBK.DE": "Deutsche Bank", "HLAG.DE": "Hapag-Lloyd"},
+            "Tecnología y Otros": {"SAP.DE": "SAP", "IFX.DE": "Infineon", "DTE.DE": "Deutsche Telekom", "DHL.DE": "DHL Group", "ADS.DE": "Adidas", "MRK.DE": "Merck KGaA", "SY1.DE": "Symrise", "SHL.DE": "Siemens Healthineers"}
         }
     },
     "🇫🇷 Francia (CAC 40)": {
         "iso_alpha": "FRA", "lat": 46.0, "lon": 2.0, "index": "^FCHI",
         "sectors": {
-            "Lujo y Consumo": {"MC.PA": "LVMH", "OR.PA": "L'Oréal", "RMS.PA": "Hermès", "KER.PA": "Kering", "BN.PA": "Danone"},
-            "Industria y Energía": {"TTE.PA": "TotalEnergies", "SU.PA": "Schneider Electric", "AIR.PA": "Airbus", "CS.PA": "AXA", "SAN.PA": "Sanofi", "BNP.PA": "BNP Paribas"}
+            "Lujo y Consumo": {"MC.PA": "LVMH", "OR.PA": "L'Oréal", "RMS.PA": "Hermès", "KER.PA": "Kering", "BN.PA": "Danone", "CDI.PA": "Christian Dior", "RI.PA": "Pernod Ricard"},
+            "Industria y Energía": {"TTE.PA": "TotalEnergies", "SU.PA": "Schneider", "AIR.PA": "Airbus", "CS.PA": "AXA", "SAN.PA": "Sanofi", "BNP.PA": "BNP Paribas", "VIV.PA": "Vivendi", "EN.PA": "Bouygues", "SGO.PA": "Saint-Gobain"}
         }
     },
     "🇬🇧 Reino Unido (FTSE 100)": {
         "iso_alpha": "GBR", "lat": 53.0, "lon": -2.0, "index": "^FTSE",
         "sectors": {
-            "Finanzas y Energía": {"HSBA.L": "HSBC", "BP.L": "BP", "SHEL.L": "Shell", "BARC.L": "Barclays", "LSEG.L": "LSE Group"},
-            "Salud y Consumo": {"AZN.L": "AstraZeneca", "GSK.L": "GSK", "ULVR.L": "Unilever", "DGE.L": "Diageo", "BATS.L": "British American Tobacco"}
+            "Finanzas y Energía": {"HSBA.L": "HSBC", "BP.L": "BP", "SHEL.L": "Shell", "BARC.L": "Barclays", "LSEG.L": "LSE Group", "STAN.L": "Standard Chartered", "PRU.L": "Prudential"},
+            "Salud y Consumo": {"AZN.L": "AstraZeneca", "GSK.L": "GSK", "ULVR.L": "Unilever", "DGE.L": "Diageo", "BATS.L": "British American Tobacco", "RKT.L": "Reckitt", "TSCO.L": "Tesco"},
+            "Industria y Materiales": {"RIO.L": "Rio Tinto", "GLEN.L": "Glencore", "AAL.L": "Anglo American", "BA.L": "BAE Systems", "RR.L": "Rolls-Royce", "CRH.L": "CRH"}
         }
     },
     "🇯🇵 Japón (Nikkei)": {
         "iso_alpha": "JPN", "lat": 36.0, "lon": 138.0, "index": "^N225",
         "sectors": {
-            "Tecnología y Motor": {"7203.T": "Toyota", "6758.T": "Sony", "9984.T": "SoftBank", "8035.T": "Tokyo Electron", "7974.T": "Nintendo", "6981.T": "Murata"},
-            "Finanzas e Industria": {"8306.T": "Mitsubishi UFJ", "8058.T": "Mitsubishi Corp", "9432.T": "NTT", "6861.T": "Keyence"}
+            "Tecnología y Motor": {"7203.T": "Toyota", "6758.T": "Sony", "9984.T": "SoftBank", "8035.T": "Tokyo Electron", "7974.T": "Nintendo", "6981.T": "Murata", "7267.T": "Honda", "6594.T": "Nidec", "6762.T": "TDK"},
+            "Finanzas e Industria": {"8306.T": "Mitsubishi UFJ", "8058.T": "Mitsubishi Corp", "9432.T": "NTT", "6861.T": "Keyence", "4502.T": "Takeda", "4568.T": "Daiichi Sankyo", "6098.T": "Recruit", "6367.T": "Daikin"}
         }
     },
     "🇨🇳 China y HK": {
         "iso_alpha": "CHN", "lat": 35.0, "lon": 104.0, "index": "^HSI",
         "sectors": {
-            "Tecnología": {"0700.HK": "Tencent", "9988.HK": "Alibaba", "3690.HK": "Meituan", "1810.HK": "Xiaomi", "0981.HK": "SMIC"},
-            "Finanzas y Consumo": {"0939.HK": "China Construction Bank", "1398.HK": "ICBC", "1299.HK": "AIA Group", "0027.HK": "Galaxy Ent"}
+            "Tecnología": {"0700.HK": "Tencent", "9988.HK": "Alibaba", "3690.HK": "Meituan", "1810.HK": "Xiaomi", "0981.HK": "SMIC", "BIDU": "Baidu", "JD": "JD.com", "PDD": "Pinduoduo", "NTES": "NetEase"},
+            "Finanzas y Consumo": {"0939.HK": "CCB", "1398.HK": "ICBC", "1299.HK": "AIA Group", "0027.HK": "Galaxy Ent", "2318.HK": "Ping An", "3988.HK": "Bank of China", "BYDDF": "BYD", "NIO": "NIO", "XPEV": "XPeng", "LI": "Li Auto"}
         }
     },
     "🇨🇦 Canadá": {
         "iso_alpha": "CAN", "lat": 56.0, "lon": -106.0, "index": "^GSPTSE",
         "sectors": {
-            "Finanzas y Energía": {"RY.TO": "Royal Bank of Canada", "TD.TO": "TD Bank", "ENB.TO": "Enbridge", "CNQ.TO": "Canadian Natural Res"},
-            "Tecnología y Otros": {"SHOP.TO": "Shopify", "CNR.TO": "Canadian National Railway", "BAM.TO": "Brookfield"}
+            "Finanzas y Energía": {"RY.TO": "RBC", "TD.TO": "TD Bank", "ENB.TO": "Enbridge", "CNQ.TO": "Canadian Natural", "BMO.TO": "Bank of Montreal", "BNS.TO": "Scotiabank", "SU.TO": "Suncor", "TRP.TO": "TC Energy"},
+            "Tecnología y Otros": {"SHOP.TO": "Shopify", "CNR.TO": "Canadian National", "BAM.TO": "Brookfield", "CP.TO": "Canadian Pacific", "CSU.TO": "Constellation", "NTR.TO": "Nutrien"}
         }
     },
     "🇧🇷 Brasil": {
         "iso_alpha": "BRA", "lat": -14.0, "lon": -51.0, "index": "^BVSP",
         "sectors": {
-            "Mercado General": {"PETR4.SA": "Petrobras", "VALE3.SA": "Vale", "ITUB4.SA": "Itaú Unibanco", "BBDC4.SA": "Bradesco", "ABEV3.SA": "Ambev", "WEGE3.SA": "WEG"}
+            "Mercado General": {"PETR4.SA": "Petrobras", "VALE3.SA": "Vale", "ITUB4.SA": "Itaú", "BBDC4.SA": "Bradesco", "ABEV3.SA": "Ambev", "WEGE3.SA": "WEG", "B3SA3.SA": "B3", "BBAS3.SA": "Banco do Brasil", "ELET3.SA": "Eletrobras", "RENT3.SA": "Localiza", "SUZB3.SA": "Suzano", "RADL3.SA": "RaiaDrogasil"}
         }
     },
     "🇦🇺 Australia": {
         "iso_alpha": "AUS", "lat": -25.0, "lon": 133.0, "index": "^AXJO",
         "sectors": {
-            "Mercado General": {"BHP.AX": "BHP Group", "RIO.AX": "Rio Tinto", "CBA.AX": "Commonwealth Bank", "CSL.AX": "CSL", "WBC.AX": "Westpac", "NAB.AX": "NAB"}
+            "Mercado General": {"BHP.AX": "BHP", "RIO.AX": "Rio Tinto", "CBA.AX": "CommBank", "CSL.AX": "CSL", "WBC.AX": "Westpac", "NAB.AX": "NAB", "ANZ.AX": "ANZ", "MQG.AX": "Macquarie", "FMG.AX": "Fortescue", "WES.AX": "Wesfarmers", "TLS.AX": "Telstra", "WOW.AX": "Woolworths"}
         }
     }
 }
@@ -382,37 +384,48 @@ if not ticker:
             stat = st.empty()
             ops = []
             
-            @st.cache_data(ttl=1800, show_spinner=False)
-            def fetch_scanner_hist(tk_str):
-                try:
-                    return yf.Ticker(tk_str).history(period="1mo")
-                except:
-                    return pd.DataFrame()
+            stat.markdown(f"<p style='text-align:center; font-size:13px; font-weight:600; opacity:0.8; color: #d4af37;'>Descargando datos históricos masivos de {len(all_ticks)} empresas...</p>", unsafe_allow_html=True)
+            prog.progress(0.2)
             
-            for i, t in enumerate(all_ticks):
-                stat.markdown(f"<p style='text-align:center; font-size:13px; font-weight:600; opacity:0.8; color: #d4af37;'>Analizando {i+1}/{len(all_ticks)}: Buscando anomalías en {t}...</p>", unsafe_allow_html=True)
+            try:
+                # Batch download all tickers at once using multithreading
+                data = yf.download(all_ticks, period="1mo", progress=False)
                 
-                h = fetch_scanner_hist(t)
-                if len(h) >= 2:
-                    last = h.iloc[-1]
-                    prev = h.iloc[-2]
-                    
-                    # RSI
-                    delta = h['Close'].diff()
-                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
-                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
-                    rs = gain / loss if loss != 0 else 100
-                    rsi = 100 - (100 / (1 + rs))
-                    
-                    # Bullish Engulfing
-                    bull = (prev['Close'] < prev['Open']) and (last['Close'] > last['Open']) and (last['Close'] > prev['Open']) and (last['Open'] <= prev['Close'])
-                    
-                    if pd.notna(rsi) and rsi < rsi_limit:
-                        ops.append({"ticker": t, "text": f"🟢 {t}: RSI Sobrevendido ({rsi:.1f})"})
-                    if bull:
-                        ops.append({"ticker": t, "text": f"🔥 {t}: Envolvente Alcista detectada"})
+                closes = data['Close'] if 'Close' in data else pd.DataFrame()
+                opens = data['Open'] if 'Open' in data else pd.DataFrame()
                 
-                prog.progress((i + 1) / len(all_ticks))
+                if not closes.empty and not opens.empty:
+                    for i, t in enumerate(all_ticks):
+                        stat.markdown(f"<p style='text-align:center; font-size:13px; font-weight:600; opacity:0.8; color: #d4af37;'>Analizando algoritmos {i+1}/{len(all_ticks)}: Procesando {t}...</p>", unsafe_allow_html=True)
+                        
+                        # Handle multi-index columns vs single column
+                        t_close = closes[t].dropna() if isinstance(closes, pd.DataFrame) and t in closes.columns else (closes.dropna() if len(all_ticks)==1 else pd.Series(dtype=float))
+                        t_open = opens[t].dropna() if isinstance(opens, pd.DataFrame) and t in opens.columns else (opens.dropna() if len(all_ticks)==1 else pd.Series(dtype=float))
+                        
+                        if len(t_close) >= 15:
+                            last_c = t_close.iloc[-1]
+                            prev_c = t_close.iloc[-2]
+                            last_o = t_open.iloc[-1]
+                            prev_o = t_open.iloc[-2]
+                            
+                            # RSI
+                            delta = t_close.diff()
+                            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
+                            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
+                            rs = gain / loss if loss != 0 else 100
+                            rsi = 100 - (100 / (1 + rs))
+                            
+                            # Bullish Engulfing
+                            bull = (prev_c < prev_o) and (last_c > last_o) and (last_c > prev_o) and (last_o <= prev_c)
+                            
+                            if pd.notna(rsi) and rsi < rsi_limit:
+                                ops.append({"ticker": t, "text": f"🟢 {t}: RSI Sobrevendido ({rsi:.1f})"})
+                            if bull:
+                                ops.append({"ticker": t, "text": f"🔥 {t}: Envolvente Alcista detectada"})
+                                
+                        prog.progress(0.2 + (0.8 * (i + 1) / len(all_ticks)))
+            except Exception as e:
+                st.error(f"Error procesando mercado en bloque: {e}")
                 
             prog.empty()
             stat.empty()
