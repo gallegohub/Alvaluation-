@@ -374,6 +374,18 @@ st.sidebar.divider()
 def set_ticker(t):
     st.session_state["ticker_input"] = t
 
+# ── Watchlist System ──
+if "watchlist" not in st.session_state:
+    st.session_state["watchlist"] = []
+
+def _add_to_watchlist(t):
+    if t and t not in st.session_state["watchlist"]:
+        st.session_state["watchlist"].append(t)
+
+def _remove_from_watchlist(t):
+    if t in st.session_state["watchlist"]:
+        st.session_state["watchlist"].remove(t)
+
 st.sidebar.markdown("### 🔍 Buscar Acción")
 ticker_input = st.sidebar.text_input(" ", placeholder="Escribe ticker o nombre...", key="ticker_input", label_visibility="collapsed")
 compare_ticker = st.sidebar.text_input("🆚 Comparar con...", placeholder="Ej: MSFT", key="compare_input").strip().upper()
@@ -388,6 +400,27 @@ if ticker_input and len(ticker_input) > 1:
         st.stop()
 
 st.sidebar.button("🌍 Explorador de Mercados", use_container_width=True, on_click=set_ticker, args=("",))
+
+# ── Watchlist Display ──
+if st.session_state["watchlist"]:
+    st.sidebar.divider()
+    st.sidebar.markdown("### ⭐ Watchlist")
+    for _wt in st.session_state["watchlist"]:
+        _wc1, _wc2 = st.sidebar.columns([4, 1])
+        try:
+            _wfi = yf.Ticker(_wt).fast_info
+            _wp = _wfi.last_price
+            _wprev = _wfi.previous_close
+            _wchg = ((_wp - _wprev) / _wprev * 100) if _wprev else 0
+            _wcol = "#00C853" if _wchg >= 0 else "#FF3D00"
+            _wsign = "+" if _wchg >= 0 else ""
+            _wc1.markdown(f"<div style='cursor:pointer; padding:4px 0;'><span style='font-weight:700; font-size:0.85rem;'>{_wt}</span> <span style='font-family:JetBrains Mono,monospace; font-size:0.8rem; opacity:0.8;'>${_wp:,.2f}</span> <span style='color:{_wcol}; font-size:0.75rem; font-weight:600;'>{_wsign}{_wchg:.1f}%</span></div>", unsafe_allow_html=True)
+        except:
+            _wc1.markdown(f"<span style='font-weight:600;'>{_wt}</span> <span style='opacity:0.4; font-size:0.8rem;'>sin datos</span>", unsafe_allow_html=True)
+        _wc2.button("✕", key=f"wl_rm_{_wt}", on_click=_remove_from_watchlist, args=(_wt,))
+    # Click watchlist item to navigate
+    for _wt in st.session_state["watchlist"]:
+        st.sidebar.button(f"📈 Ver {_wt}", key=f"wl_go_{_wt}", on_click=set_ticker, args=(_wt,), use_container_width=True)
 
 st.sidebar.divider()
 st.sidebar.markdown("### ⚙️ Gráfico")
@@ -899,13 +932,73 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
+# ── Add to Watchlist star ──
+if ticker not in st.session_state.get("watchlist", []):
+    st.button("☆", key="add_wl_main", on_click=_add_to_watchlist, args=(ticker,), help="Añadir a Watchlist")
+else:
+    st.button("★", key="rm_wl_main", on_click=_remove_from_watchlist, args=(ticker,), help="Quitar de Watchlist")
+
+# ── Sidebar Mini-Card ──
+st.sidebar.divider()
+st.sidebar.markdown(f"""
+<div style='background:rgba(128,128,128,0.06); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:14px; text-align:center; margin-bottom:5px;'>
+    <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5; font-family:Outfit,sans-serif;'>Analizando</p>
+    <p style='margin:2px 0 0 0; font-weight:800; font-size:1.1rem;'>{name}</p>
+    <p style='margin:0; font-family:JetBrains Mono,monospace; font-size:1.5rem; font-weight:300; color:#d4af37;'>{sym}{price:,.2f}</p>
+    <span style='color:{chg_color}; font-size:0.9rem; font-weight:600;'>{sign}{pct_change:.2f}%</span>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Investment Score Calculation (se muestra dentro del tab del gráfico) ──
+_score = 50
+_score_details = []
+
+_per_raw = info.get("trailingPE") or info.get("forwardPE", 0)
+if _per_raw and _per_raw > 0:
+    if _per_raw < 12: _score += 20; _score_details.append("PER bajo (+20)")
+    elif _per_raw < 20: _score += 12; _score_details.append("PER razonable (+12)")
+    elif _per_raw < 30: _score += 5; _score_details.append("PER algo alto (+5)")
+    elif _per_raw < 50: _score -= 5; _score_details.append("PER alto (-5)")
+    else: _score -= 15; _score_details.append("PER muy elevado (-15)")
+
+_ni_check = income.iloc[:, 0].get("Net Income", 0) if not income.empty else 0
+_rev_check = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty else 0
+if _rev_check and _rev_check > 0 and _ni_check:
+    _m = _ni_check / _rev_check * 100
+    if _m > 20: _score += 15; _score_details.append(f"Margen neto excelente ({_m:.0f}%) (+15)")
+    elif _m > 10: _score += 10; _score_details.append(f"Margen neto sano ({_m:.0f}%) (+10)")
+    elif _m > 0: _score += 3; _score_details.append(f"Margen neto bajo ({_m:.0f}%) (+3)")
+    else: _score -= 10; _score_details.append(f"Margen negativo ({_m:.0f}%) (-10)")
+
+if dte is not None and dte > 0:
+    if dte < 30: _score += 15; _score_details.append("Deuda muy baja (+15)")
+    elif dte < 80: _score += 8; _score_details.append("Deuda controlada (+8)")
+    elif dte < 150: _score -= 3; _score_details.append("Deuda elevada (-3)")
+    else: _score -= 10; _score_details.append("Deuda excesiva (-10)")
+
+_fcf_check = cashflow.iloc[:, 0].get("Free Cash Flow", 0) if not cashflow.empty else 0
+if _fcf_check and _fcf_check > 0:
+    _score += 10; _score_details.append("FCF positivo (+10)")
+elif _fcf_check and _fcf_check < 0:
+    _score -= 8; _score_details.append("FCF negativo (-8)")
+
+if div_yield and div_yield > 0.01:
+    _score += 5; _score_details.append("Paga dividendo (+5)")
+
+_score = max(0, min(100, _score))
+
+if _score >= 75: _score_color = "#00C853"; _score_label = "Excelente"
+elif _score >= 55: _score_color = "#d4af37"; _score_label = "Bueno"
+elif _score >= 35: _score_color = "#FF9800"; _score_label = "Regular"
+else: _score_color = "#FF3D00"; _score_label = "Débil"
+
 # ── Quick PER badge for tab label ──
 _per_val = mkt_cap / (income.iloc[:, 0].get("Net Income", 0) or 1) if not income.empty else 0
 _per_badge = f" 🟢" if 0 < _per_val < 20 else (f" 🔴" if _per_val > 35 else "")
 
 # ── Tabs ──
-tab_chart, tab_compare, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port, tab_news, tab_inst = st.tabs([
-    "📊 Gráfico", "🆚 Comparativa", "🕯️ Análisis Técnico", "📈 Tendencias", f"💰 Valoración{_per_badge}", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera", "📰 Noticias", "🏦 Institucional"
+tab_chart, tab_compare, tab_ta, tab_fin, tab_statements, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port, tab_news, tab_inst = st.tabs([
+    "📊 Gráfico", "🆚 Comparativa", "🕯️ Análisis Técnico", "📈 Tendencias", "🗃️ Fundamentales", f"💰 Valoración{_per_badge}", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera", "📰 Noticias", "🏦 Institucional"
 ])
 
 # ── Tab 2: Comparativa ──
@@ -1070,6 +1163,38 @@ with tab_chart:
         
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': False, 'displayModeBar': False}, theme="streamlit")
 
+    # ── Investment Score (Gauge) inside Chart tab ──
+    st.divider()
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=_score,
+        title={'text': f"Score de Inversión: {_score_label}", 'font': {'size': 14, 'family': 'Outfit'}},
+        number={'font': {'size': 40, 'family': 'JetBrains Mono', 'color': _score_color}},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': 'rgba(128,128,128,0.3)'},
+            'bar': {'color': _score_color, 'thickness': 0.3},
+            'bgcolor': 'rgba(0,0,0,0)',
+            'borderwidth': 0,
+            'steps': [
+                {'range': [0, 35], 'color': 'rgba(255,61,0,0.08)'},
+                {'range': [35, 55], 'color': 'rgba(255,152,0,0.08)'},
+                {'range': [55, 75], 'color': 'rgba(212,175,55,0.08)'},
+                {'range': [75, 100], 'color': 'rgba(0,200,83,0.08)'},
+            ],
+            'threshold': {'line': {'color': _score_color, 'width': 3}, 'thickness': 0.8, 'value': _score}
+        }
+    ))
+    fig_gauge.update_layout(height=200, margin=dict(l=30, r=30, t=50, b=10), paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+
+    gauge_col1, gauge_col2 = st.columns([1, 1.2])
+    with gauge_col1:
+        st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
+    with gauge_col2:
+        st.markdown("<p style='font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; opacity:0.5; margin-bottom:5px; font-family:Outfit,sans-serif;'>Desglose del Score</p>", unsafe_allow_html=True)
+        for _sd in _score_details:
+            _sd_col = "#00C853" if "+" in _sd.split("(")[-1] else "#FF3D00"
+            st.markdown(f"<span style='font-size:0.8rem; color:{_sd_col};'>{'\u25b2' if '+' in _sd.split('(')[-1] else '\u25bc'} {_sd}</span>", unsafe_allow_html=True)
+
 
 # ── Tab 2: Technical Analysis ──
 with tab_ta:
@@ -1228,7 +1353,324 @@ with tab_fin:
             st.plotly_chart(fig_divs, use_container_width=True, config={'displayModeBar': False})
 
 
-# ── Tab 4: Centro de Valoración ──
+# ── Tab 4: Fundamentales (Estados Financieros) ──
+with tab_statements:
+    st.markdown("### 🗃️ Análisis Fundamental Profundo")
+    st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Radiografía contable completa: KPIs, visualizaciones y estados financieros íntegros.</p>", unsafe_allow_html=True)
+
+    # ── Helper: safe extraction with YoY delta ──
+    def _safe_get(df, key, col_idx=0):
+        if df.empty or key not in df.index: return 0
+        v = df.iloc[:, col_idx].get(key, 0)
+        return v if pd.notna(v) else 0
+
+    def _yoy(df, key):
+        cur = _safe_get(df, key, 0)
+        prev = _safe_get(df, key, 1) if len(df.columns) > 1 else 0
+        if prev and prev != 0:
+            return ((cur - prev) / abs(prev)) * 100
+        return None
+
+    # ── Extraer KPIs ──
+    f_rev = _safe_get(income, "Total Revenue")
+    f_gp = _safe_get(income, "Gross Profit")
+    f_ebitda = _safe_get(income, "EBITDA")
+    f_ebit = _safe_get(income, "EBIT")
+    f_ni = _safe_get(income, "Net Income")
+    f_fcf = _safe_get(cashflow, "Free Cash Flow")
+    f_opex = _safe_get(income, "Operating Expense")
+    f_tax = _safe_get(income, "Tax Provision")
+    f_interest = _safe_get(income, "Interest Expense")
+
+    f_total_assets = _safe_get(balance, "Total Assets")
+    f_total_liab = _safe_get(balance, "Total Liabilities Net Minority Interest")
+    f_equity = 0
+    for _ek in ["Stockholders Equity", "Total Stockholder Equity", "Common Stock Equity"]:
+        f_equity = _safe_get(balance, _ek)
+        if f_equity: break
+    f_debt = 0
+    for _dk in ["Total Debt", "Long Term Debt"]:
+        f_debt = _safe_get(balance, _dk)
+        if f_debt: break
+    f_cash = 0
+    for _ck in ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"]:
+        f_cash = _safe_get(balance, _ck)
+        if f_cash: break
+
+    f_margin_gross = (f_gp / f_rev * 100) if f_rev else 0
+    f_margin_net = (f_ni / f_rev * 100) if f_rev else 0
+    f_margin_ebitda = (f_ebitda / f_rev * 100) if f_rev else 0
+    f_roe = (f_ni / f_equity * 100) if f_equity else 0
+    f_roa = (f_ni / f_total_assets * 100) if f_total_assets else 0
+
+    # ── Función para KPI Card HTML ──
+    def _kpi_card(label, value_str, delta_pct=None, icon="📊", accent="#d4af37"):
+        delta_html = ""
+        if delta_pct is not None:
+            d_col = color_up if delta_pct >= 0 else color_down
+            d_sign = "+" if delta_pct >= 0 else ""
+            delta_html = f"<span style='font-size:0.8rem; color:{d_col}; font-weight:600;'>{d_sign}{delta_pct:.1f}% YoY</span>"
+        return f"""
+        <div style='background:rgba(128,128,128,0.05); border:1px solid rgba(128,128,128,0.15); border-radius:12px; padding:18px 16px; text-align:center; transition:all 0.3s ease;' class='glow-hover'>
+            <p style='margin:0 0 4px 0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5; font-family:Outfit,sans-serif;'>{icon} {label}</p>
+            <p style='margin:0; font-family:JetBrains Mono,monospace; font-size:1.6rem; font-weight:300; color:{accent};'>{value_str}</p>
+            {delta_html}
+        </div>"""
+
+    # ── Fila 1: Métricas de Rentabilidad ──
+    st.markdown("<h4 style='margin-bottom:10px;'>💰 Rentabilidad</h4>", unsafe_allow_html=True)
+    kc1, kc2, kc3, kc4, kc5 = st.columns(5)
+    kc1.markdown(_kpi_card("Ingresos", fmt_big(f_rev), _yoy(income, "Total Revenue"), "💵", "#d4af37"), unsafe_allow_html=True)
+    kc2.markdown(_kpi_card("Beneficio Bruto", fmt_big(f_gp), _yoy(income, "Gross Profit"), "📦", "#00C853"), unsafe_allow_html=True)
+    kc3.markdown(_kpi_card("EBITDA", fmt_big(f_ebitda), _yoy(income, "EBITDA"), "⚡", "#FF9800"), unsafe_allow_html=True)
+    kc4.markdown(_kpi_card("EBIT", fmt_big(f_ebit), _yoy(income, "EBIT"), "🔧"), unsafe_allow_html=True)
+    kc5.markdown(_kpi_card("Beneficio Neto", fmt_big(f_ni), _yoy(income, "Net Income"), "🏆", "#00C853" if f_ni > 0 else "#FF3D00"), unsafe_allow_html=True)
+
+    st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
+
+    # ── Fila 2: Márgenes y Eficiencia ──
+    st.markdown("<h4 style='margin-bottom:10px;'>📐 Márgenes y Eficiencia</h4>", unsafe_allow_html=True)
+    mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+    mc1.markdown(_kpi_card("Margen Bruto", f"{f_margin_gross:.1f}%", None, "📊", "#00C853" if f_margin_gross > 40 else "#FF9800"), unsafe_allow_html=True)
+    mc2.markdown(_kpi_card("Margen EBITDA", f"{f_margin_ebitda:.1f}%", None, "📊", "#00C853" if f_margin_ebitda > 25 else "#FF9800"), unsafe_allow_html=True)
+    mc3.markdown(_kpi_card("Margen Neto", f"{f_margin_net:.1f}%", None, "📊", "#00C853" if f_margin_net > 15 else ("#FF3D00" if f_margin_net < 0 else "#FF9800")), unsafe_allow_html=True)
+    mc4.markdown(_kpi_card("ROE", f"{f_roe:.1f}%", None, "🎯", "#00C853" if f_roe > 15 else "#FF9800"), unsafe_allow_html=True)
+    mc5.markdown(_kpi_card("ROA", f"{f_roa:.1f}%", None, "🎯"), unsafe_allow_html=True)
+
+    st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
+
+    # ── Fila 3: Balance / Solvencia ──
+    st.markdown("<h4 style='margin-bottom:10px;'>🏦 Solidez Financiera</h4>", unsafe_allow_html=True)
+    bc1, bc2, bc3, bc4, bc5 = st.columns(5)
+    bc1.markdown(_kpi_card("Activos Totales", fmt_big(f_total_assets), None, "🏗️"), unsafe_allow_html=True)
+    bc2.markdown(_kpi_card("Pasivos Totales", fmt_big(f_total_liab), None, "⚠️", "#FF9800"), unsafe_allow_html=True)
+    bc3.markdown(_kpi_card("Patrimonio Neto", fmt_big(f_equity), None, "🛡️", "#00C853" if f_equity > 0 else "#FF3D00"), unsafe_allow_html=True)
+    bc4.markdown(_kpi_card("Deuda Total", fmt_big(f_debt), None, "🔗", "#FF3D00" if f_debt > f_equity else "#FF9800"), unsafe_allow_html=True)
+    bc5.markdown(_kpi_card("Caja / FCF", f"{fmt_big(f_cash)} / {fmt_big(f_fcf)}", _yoy(cashflow, "Free Cash Flow"), "💎", "#00C853"), unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Gráfico 1: Waterfall P&L (Cascada de Rentabilidad) ──
+    st.markdown("<h4>📊 Cascada de Rentabilidad (Último Año)</h4>", unsafe_allow_html=True)
+    wf_labels = ["Ingresos", "Coste de Ventas", "Beneficio Bruto", "Gastos Operativos", "EBIT", "Intereses", "Impuestos", "Beneficio Neto"]
+    cogs = f_rev - f_gp if f_rev and f_gp else 0
+    opex_net = f_gp - f_ebit if f_gp and f_ebit else 0
+    wf_values = [f_rev, -abs(cogs), f_gp, -abs(opex_net), f_ebit, -abs(f_interest) if f_interest else 0, -abs(f_tax) if f_tax else 0, f_ni]
+    wf_measures = ["absolute", "relative", "total", "relative", "total", "relative", "relative", "total"]
+    wf_colors = {"increasing": {"marker": {"color": "#00C853"}}, "decreasing": {"marker": {"color": "#FF3D00"}}, "totals": {"marker": {"color": "#d4af37"}}}
+
+    fig_wf = go.Figure(go.Waterfall(
+        x=wf_labels, y=wf_values, measure=wf_measures,
+        textposition="outside", text=[fmt_big(v) for v in wf_values],
+        connector=dict(line=dict(color="rgba(128,128,128,0.3)", width=1)),
+        **wf_colors
+    ))
+    fig_wf.update_layout(height=350, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter", size=11), showlegend=False)
+    fig_wf.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+    st.plotly_chart(fig_wf, use_container_width=True, config={'displayModeBar': False})
+
+    # ── Gráfico 2: Evolución multi-anual (Ingresos, EBITDA, Beneficio Neto, FCF) ──
+    if not income.empty:
+        st.markdown("<h4>📈 Evolución Financiera Multi-Anual</h4>", unsafe_allow_html=True)
+        _years = income.columns.tolist()
+        _ylabels = [str(d.year) if hasattr(d, 'year') else str(d) for d in _years][::-1]
+
+        def _sr(df, key):
+            if df.empty or key not in df.index: return [0]*len(df.columns)
+            return [df.loc[key, c] if pd.notna(df.loc[key, c]) else 0 for c in df.columns][::-1]
+
+        fig_evo = go.Figure()
+        fig_evo.add_trace(go.Bar(x=_ylabels, y=_sr(income, "Total Revenue"), name="Ingresos", marker_color="rgba(128,128,128,0.25)"))
+        fig_evo.add_trace(go.Bar(x=_ylabels, y=_sr(income, "EBITDA"), name="EBITDA", marker_color="rgba(255,152,0,0.5)"))
+        fig_evo.add_trace(go.Scatter(x=_ylabels, y=_sr(income, "Net Income"), name="Beneficio Neto", mode="lines+markers", line=dict(color="#00C853", width=3), marker=dict(size=8)))
+        fig_evo.add_trace(go.Scatter(x=_ylabels, y=_sr(cashflow, "Free Cash Flow"), name="Free Cash Flow", mode="lines+markers", line=dict(color="#d4af37", width=3, dash="dot"), marker=dict(size=8, symbol="diamond")))
+        fig_evo.update_layout(barmode="group", height=350, margin=dict(l=0, r=0, t=20, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig_evo.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+        st.plotly_chart(fig_evo, use_container_width=True, config={'displayModeBar': False})
+
+    # ── Gráfico 3: Composición del Balance (Stacked) ──
+    if not balance.empty:
+        st.markdown("<h4>⚖️ Composición del Balance</h4>", unsafe_allow_html=True)
+        _bylabels = [str(d.year) if hasattr(d, 'year') else str(d) for d in balance.columns.tolist()][::-1]
+
+        def _sb(key):
+            if key not in balance.index: return [0]*len(balance.columns)
+            return [balance.loc[key, c] if pd.notna(balance.loc[key, c]) else 0 for c in balance.columns][::-1]
+
+        fig_bal = make_subplots(rows=1, cols=2, subplot_titles=["Activos", "Pasivos + Patrimonio"], shared_yaxes=True)
+
+        # Activos
+        _current_a = _sb("Current Assets")
+        _noncurrent_a = [a - ca for a, ca in zip(_sb("Total Assets"), _current_a)]
+        fig_bal.add_trace(go.Bar(x=_bylabels, y=_current_a, name="Activo Corriente", marker_color="rgba(0,200,83,0.5)"), row=1, col=1)
+        fig_bal.add_trace(go.Bar(x=_bylabels, y=_noncurrent_a, name="Activo No Corriente", marker_color="rgba(0,200,83,0.2)"), row=1, col=1)
+
+        # Pasivos + Equity
+        _current_l = _sb("Current Liabilities")
+        _noncurrent_l = [t - cl for t, cl in zip(_sb("Total Liabilities Net Minority Interest"), _current_l)]
+        _eq_vals = _sb("Stockholders Equity") if "Stockholders Equity" in balance.index else _sb("Common Stock Equity")
+        fig_bal.add_trace(go.Bar(x=_bylabels, y=_current_l, name="Pasivo Corriente", marker_color="rgba(255,61,0,0.5)"), row=1, col=2)
+        fig_bal.add_trace(go.Bar(x=_bylabels, y=_noncurrent_l, name="Pasivo No Corriente", marker_color="rgba(255,61,0,0.2)"), row=1, col=2)
+        fig_bal.add_trace(go.Bar(x=_bylabels, y=_eq_vals, name="Patrimonio Neto", marker_color="rgba(212,175,55,0.5)"), row=1, col=2)
+
+        fig_bal.update_layout(barmode="stack", height=350, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"), legend=dict(orientation="h", yanchor="bottom", y=1.06, xanchor="right", x=1))
+        fig_bal.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+        st.plotly_chart(fig_bal, use_container_width=True, config={'displayModeBar': False})
+
+    st.divider()
+
+    # ── Estados Financieros Completos (Visual) ──
+    st.markdown("<h4>📋 Estados Financieros Completos</h4>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.8rem; opacity:0.5;'>Desglose visual de cada estado financiero con evolución interanual.</p>", unsafe_allow_html=True)
+
+    def _format_df_raw(df):
+        if df.empty: return pd.DataFrame()
+        d = df.copy()
+        try: d.columns = [c.strftime('%Y') if hasattr(c, 'strftime') else str(c) for c in d.columns]
+        except: pass
+        d = d.fillna(0)
+        return d
+
+    def _build_visual_statement(df, title, key_rows, chart_color_map):
+        """Build a visual financial statement with horizontal bar chart + styled HTML table."""
+        if df.empty:
+            st.info(f"{title}: datos no disponibles.")
+            return
+
+        cols_raw = df.columns.tolist()
+        col_labels = [c.strftime('%Y') if hasattr(c, 'strftime') else str(c) for c in cols_raw]
+
+        # ── Chart: key line items across years ──
+        fig_stmt = go.Figure()
+        for row_key, display_name in key_rows:
+            if row_key in df.index:
+                vals = [df.loc[row_key, c] if pd.notna(df.loc[row_key, c]) else 0 for c in cols_raw][::-1]
+                color = chart_color_map.get(row_key, "rgba(128,128,128,0.4)")
+                fig_stmt.add_trace(go.Bar(x=col_labels[::-1], y=vals, name=display_name, marker_color=color))
+
+        fig_stmt.update_layout(
+            barmode="group", height=300, margin=dict(l=0, r=0, t=10, b=0),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", size=11),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        fig_stmt.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+        st.plotly_chart(fig_stmt, use_container_width=True, config={'displayModeBar': False})
+
+        # ── Styled HTML Table ──
+        available_rows = [r for r in df.index if any(pd.notna(df.loc[r, c]) and df.loc[r, c] != 0 for c in cols_raw)]
+
+        # Find max absolute value for bar scaling
+        all_vals = []
+        for r in available_rows:
+            for c in cols_raw:
+                v = df.loc[r, c]
+                if pd.notna(v): all_vals.append(abs(v))
+        max_val = max(all_vals) if all_vals else 1
+
+        header_html = "".join([f"<th style='padding:8px 12px; text-align:right; font-family:Outfit,sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; border-bottom:2px solid rgba(212,175,55,0.3);'>{lbl}</th>" for lbl in col_labels])
+        header_html += "<th style='padding:8px 12px; text-align:right; font-family:Outfit,sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; border-bottom:2px solid rgba(212,175,55,0.3);'>YoY</th>"
+
+        rows_html = ""
+        for row_name in available_rows:
+            # Label styling: bold for key rows
+            is_key = any(row_name == kr for kr, _ in key_rows)
+            label_style = "font-weight:700; color:#d4af37;" if is_key else "font-weight:400; opacity:0.85;"
+
+            cells = ""
+            vals_for_row = []
+            for c in cols_raw:
+                v = df.loc[row_name, c]
+                v = v if pd.notna(v) else 0
+                vals_for_row.append(v)
+                v_color = "#FF3D00" if v < 0 else "inherit"
+                bar_width = min(abs(v) / max_val * 100, 100) if max_val else 0
+                bar_col = "rgba(0,200,83,0.15)" if v >= 0 else "rgba(255,61,0,0.15)"
+                cells += f"""<td style='padding:6px 12px; text-align:right; font-family:JetBrains Mono,monospace; font-size:0.8rem; color:{v_color}; position:relative;'>
+                    <div style='position:absolute; left:0; top:0; bottom:0; width:{bar_width}%; background:{bar_col}; border-radius:4px;'></div>
+                    <span style='position:relative;'>{fmt_big(v)}</span>
+                </td>"""
+
+            # YoY calculation
+            yoy_html = ""
+            if len(vals_for_row) >= 2 and vals_for_row[1] and vals_for_row[1] != 0:
+                yoy_pct = ((vals_for_row[0] - vals_for_row[1]) / abs(vals_for_row[1])) * 100
+                yoy_col = color_up if yoy_pct >= 0 else color_down
+                yoy_sign = "+" if yoy_pct >= 0 else ""
+                yoy_html = f"<td style='padding:6px 12px; text-align:right; font-family:JetBrains Mono,monospace; font-size:0.8rem; color:{yoy_col}; font-weight:600;'>{yoy_sign}{yoy_pct:.1f}%</td>"
+            else:
+                yoy_html = "<td style='padding:6px 12px; text-align:right; opacity:0.3; font-size:0.8rem;'>—</td>"
+
+            rows_html += f"""<tr style='border-bottom:1px solid rgba(128,128,128,0.08); transition:background 0.2s;' onmouseover="this.style.background='rgba(212,175,55,0.05)'" onmouseout="this.style.background='transparent'">
+                <td style='padding:6px 12px; font-size:0.8rem; {label_style} white-space:nowrap;'>{row_name}</td>
+                {cells}{yoy_html}
+            </tr>"""
+
+        table_html = f"""
+        <div style='overflow-x:auto; border:1px solid rgba(128,128,128,0.12); border-radius:12px; margin-top:10px;'>
+            <table style='width:100%; border-collapse:collapse;'>
+                <thead><tr>
+                    <th style='padding:8px 12px; text-align:left; font-family:Outfit,sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; border-bottom:2px solid rgba(212,175,55,0.3);'>Partida</th>
+                    {header_html}
+                </tr></thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>"""
+        st.markdown(table_html, unsafe_allow_html=True)
+
+        # Raw data fallback
+        with st.expander("📄 Ver datos en bruto (DataFrame)", expanded=False):
+            st.dataframe(_format_df_raw(df), use_container_width=True, height=400)
+
+    # ── 1. Cuenta de Resultados ──
+    with st.expander("🧾 Cuenta de Resultados (Income Statement)", expanded=True):
+        _build_visual_statement(income, "Cuenta de Resultados", [
+            ("Total Revenue", "Ingresos"),
+            ("Gross Profit", "Beneficio Bruto"),
+            ("EBITDA", "EBITDA"),
+            ("EBIT", "EBIT"),
+            ("Net Income", "Beneficio Neto"),
+        ], {
+            "Total Revenue": "rgba(128,128,128,0.3)",
+            "Gross Profit": "rgba(0,200,83,0.5)",
+            "EBITDA": "rgba(255,152,0,0.5)",
+            "EBIT": "rgba(212,175,55,0.5)",
+            "Net Income": "rgba(0,200,83,0.8)",
+        })
+
+    # ── 2. Balance General ──
+    with st.expander("⚖️ Balance General (Balance Sheet)", expanded=False):
+        _build_visual_statement(balance, "Balance General", [
+            ("Total Assets", "Activos Totales"),
+            ("Total Liabilities Net Minority Interest", "Pasivos Totales"),
+            ("Stockholders Equity", "Patrimonio Neto"),
+            ("Total Debt", "Deuda Total"),
+            ("Cash And Cash Equivalents", "Efectivo"),
+        ], {
+            "Total Assets": "rgba(0,200,83,0.4)",
+            "Total Liabilities Net Minority Interest": "rgba(255,61,0,0.4)",
+            "Stockholders Equity": "rgba(212,175,55,0.5)",
+            "Total Debt": "rgba(255,152,0,0.5)",
+            "Cash And Cash Equivalents": "rgba(0,200,83,0.7)",
+        })
+
+    # ── 3. Flujo de Caja ──
+    with st.expander("💵 Flujo de Caja (Cash Flow Statement)", expanded=False):
+        _build_visual_statement(cashflow, "Flujo de Caja", [
+            ("Operating Cash Flow", "Flujo Operativo"),
+            ("Capital Expenditure", "CapEx"),
+            ("Free Cash Flow", "Free Cash Flow"),
+            ("Repurchase Of Capital Stock", "Recompra de Acciones"),
+            ("Cash Dividends Paid", "Dividendos Pagados"),
+        ], {
+            "Operating Cash Flow": "rgba(0,200,83,0.5)",
+            "Capital Expenditure": "rgba(255,61,0,0.4)",
+            "Free Cash Flow": "rgba(212,175,55,0.6)",
+            "Repurchase Of Capital Stock": "rgba(255,152,0,0.5)",
+            "Cash Dividends Paid": "rgba(128,128,128,0.4)",
+        })
+
+# ── Tab 5: Centro de Valoración ──
 with tab_val:
     st.markdown("### 🏛️ Modelos de Valoración (Fair Value)")
     
@@ -2479,11 +2921,12 @@ if ticker and not income.empty:
     st.sidebar.markdown("### 🤖 Á.L.V.A.R.O. Resumen Ejecutivo")
     
     e_revenue = income.iloc[:, 0].get("Total Revenue", 0) if not income.empty else 0
+    _ai_name = info.get("longName") or info.get("shortName") or ticker
     margin_text = "márgenes muy rentables" if (e_ebitda/e_revenue if e_revenue and e_revenue>0 else 0) > 0.20 else "márgenes algo ajustados"
     val_text = "con descuento frente a su precio justo (potencial alcista)" if e_upside > 0 else "con prima (algo cara frente a su valor teórico)"
     tech_text = "en tendencia alcista a corto plazo" if (hist['Close'].iloc[-1] > hist['SMA_50'].iloc[-1] if not hist.empty and 'SMA_50' in hist else True) else "en tendencia bajista"
     
-    ai_summary = f"**{name}** opera en el sector de *{sector}*. Actualmente muestra {margin_text} y, según nuestro análisis conservador, la acción cotiza {val_text}. Desde el punto de vista técnico, se encuentra {tech_text}. "
+    ai_summary = f"**{_ai_name}** opera en el sector de *{sector}*. Actualmente muestra {margin_text} y, según nuestro análisis conservador, la acción cotiza {val_text}. Desde el punto de vista técnico, se encuentra {tech_text}. "
     
     if e_upside > 0.15:
         ai_summary += "💡 **Veredicto:** Oportunidad clara de inversión a largo plazo según fundamentales."
@@ -2493,3 +2936,16 @@ if ticker and not income.empty:
         ai_summary += "⚖️ **Veredicto:** Valoración justa. Buscar puntos de entrada tácticos mediante el gráfico."
 
     st.sidebar.info(ai_summary)
+
+# ── Footer Profesional ──
+st.divider()
+st.markdown(f"""
+<div style='text-align:center; padding:30px 0 20px 0; opacity:0.6;'>
+    <p style='font-family:Outfit,sans-serif; font-size:0.9rem; font-weight:600; letter-spacing:2px; margin-bottom:5px;'>
+        <span style='color:#d4af37;'>Valuation</span>Pro
+    </p>
+    <p style='font-size:0.7rem; margin:3px 0; opacity:0.7;'>Motor de Análisis: Á.L.V.A.R.O. v2.0 · Datos: Yahoo Finance</p>
+    <p style='font-size:0.65rem; margin:3px 0; opacity:0.5; max-width:700px; margin-left:auto; margin-right:auto;'>⚠️ Aviso legal: La información proporcionada por ValuationPro tiene carácter exclusivamente informativo y educativo. En ningún caso constituye asesoramiento financiero, recomendación de inversión ni oferta de compra o venta de valores. Toda inversión en mercados financieros conlleva riesgo de pérdida parcial o total del capital invertido. Consulte a un profesional cualificado antes de tomar decisiones de inversión.</p>
+    <p style='font-size:0.6rem; margin:8px 0 0 0; opacity:0.35;'>© {datetime.now().year} ValuationPro · Herramienta de análisis con fines educativos</p>
+</div>
+""", unsafe_allow_html=True)
