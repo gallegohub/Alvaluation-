@@ -919,6 +919,16 @@ if div_rate and price and price > 0:
     div_yield = div_rate / price
 else:
     div_yield = info.get("dividendYield") or info.get("trailingAnnualDividendYield", 0)
+
+if not div_yield and divs_data is not None and not divs_data.empty and price and price > 0:
+    try:
+        # Fallback: Sum dividends from the last 365 days
+        cutoff = pd.Timestamp.now(tz=divs_data.index.tz) - pd.Timedelta(days=365)
+        recent_divs = divs_data[divs_data.index >= cutoff]
+        if not recent_divs.empty:
+            div_yield = recent_divs.sum() / price
+    except: pass
+
 if div_yield is None: div_yield = 0
 if div_yield > 1.0: div_yield = div_yield / 100.0
 div_str = f"{div_yield*100:.2f}%" if div_yield > 0 else "0%"
