@@ -354,19 +354,51 @@ def get_market_status_v3():
     return status
 
 # ── Sidebar ──
+st.sidebar.markdown("""
+<style>
+    @keyframes alvaro-pulse {
+        0%, 100% { text-shadow: 0 0 4px rgba(212,175,55,0.2); opacity: 0.75; }
+        50% { text-shadow: 0 0 20px rgba(212,175,55,0.9), 0 0 40px rgba(212,175,55,0.4), 0 0 60px rgba(212,175,55,0.15); opacity: 1; }
+    }
+    @keyframes dot-pulse {
+        0%, 100% { box-shadow: 0 0 4px rgba(212,175,55,0.4); opacity: 0.5; }
+        50% { box-shadow: 0 0 12px rgba(212,175,55,1), 0 0 20px rgba(212,175,55,0.5); opacity: 1; }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 c_logo1, c_logo2 = st.sidebar.columns([1, 4])
 try:
     c_logo1.image("logo_a.png", use_container_width=True)
 except:
-    c_logo1.markdown("<h1 style='text-align: right; margin-top: -10px; color: #d4af37;'>V</h1>", unsafe_allow_html=True)
+    c_logo1.markdown("""
+    <div style='text-align:center; margin-top:5px;'>
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="34" height="34" rx="8" stroke="#d4af37" stroke-width="1.5" fill="rgba(212,175,55,0.06)"/>
+            <rect x="8" y="20" width="4" height="8" rx="1" fill="rgba(212,175,55,0.4)"/>
+            <rect x="14" y="14" width="4" height="14" rx="1" fill="rgba(212,175,55,0.6)"/>
+            <rect x="20" y="17" width="4" height="11" rx="1" fill="rgba(212,175,55,0.5)"/>
+            <rect x="26" y="10" width="4" height="18" rx="1" fill="#d4af37"/>
+            <line x1="8" y1="8" x2="14" y2="12" stroke="#d4af37" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+            <line x1="14" y1="12" x2="20" y2="15" stroke="#d4af37" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+            <line x1="20" y1="15" x2="26" y2="8" stroke="#d4af37" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+            <circle cx="8" cy="8" r="2" fill="#d4af37" opacity="0.7"/>
+            <circle cx="14" cy="12" r="2" fill="#d4af37" opacity="0.7"/>
+            <circle cx="20" cy="15" r="2" fill="#d4af37" opacity="0.7"/>
+            <circle cx="26" cy="8" r="2" fill="#d4af37" opacity="0.7"/>
+        </svg>
+    </div>
+    """, unsafe_allow_html=True)
 c_logo2.markdown("<h2 style='font-weight: 800; letter-spacing: -1px; margin-top: 5px;'>Valuation<span style='font-weight: 300; color: #d4af37;'>Pro</span></h2>", unsafe_allow_html=True)
 
 st.sidebar.markdown("""
-<div style='margin-bottom: 20px; margin-top: -15px;'>
-    <div style='font-size: 0.75rem; line-height: 1.3;'>
-        <span style='opacity: 0.6;'>Motor de IA: </span><span style='font-weight: 800; letter-spacing: 1px; color: #d4af37; text-shadow: 0 0 5px rgba(212,175,55,0.4);'>Á.L.V.A.R.O.</span><br>
-        <span style='font-size: 0.55rem; opacity: 0.4; text-transform: uppercase; letter-spacing: 0.5px;'>Advanced Liquidity & Valuation<br>Algorithm for Research Optimization</span>
+<div style='margin-bottom: 20px; margin-top: -15px; background: linear-gradient(135deg, rgba(212,175,55,0.06) 0%, rgba(0,0,0,0) 100%); border: 1px solid rgba(212,175,55,0.12); border-radius: 10px; padding: 12px 14px;'>
+    <div style='display: flex; align-items: center; gap: 8px;'>
+        <div style='width: 6px; height: 6px; border-radius: 50%; background: #d4af37; animation: dot-pulse 2s ease-in-out infinite; flex-shrink: 0;'></div>
+        <span style='font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.45; font-family: Outfit, sans-serif;'>Powered by</span>
     </div>
+    <p style='margin: 4px 0 2px 14px; font-weight: 800; font-size: 1.05rem; letter-spacing: 2px; color: #d4af37; animation: alvaro-pulse 2.5s ease-in-out infinite; font-family: JetBrains Mono, monospace;'>Á.L.V.A.R.O.</p>
+    <p style='margin: 0 0 0 14px; font-size: 0.5rem; opacity: 0.35; text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.4; font-family: Outfit, sans-serif;'>Advanced Liquidity & Valuation<br>Algorithm for Research Optimization</p>
 </div>
 """, unsafe_allow_html=True)
 st.sidebar.divider()
