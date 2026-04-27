@@ -947,20 +947,25 @@ except: pass
 
 earnings_badge = f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📅 Resultados: <b>{earnings_date_str}</b></span>' if earnings_date_str else ""
 
+_badges = []
+_badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Dividendo: <b>{div_str}</b></span>')
+if earnings_date_str: _badges.append(earnings_badge)
+if debt_str: _badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>')
+if sector and sector != "N/A": _badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>')
+if country and country != "N/A": _badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>')
+_badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📊 Cap: <b>{fmt_big(mkt_cap)}</b></span>')
+
+_badges_html = "".join(_badges)
+
 st.markdown(f"<h1 style='font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin-bottom: -15px;'>{name} <span style='font-weight: 300; opacity: 0.4; font-size: 1.5rem;'>{ticker}</span></h1>", unsafe_allow_html=True)
 st.markdown(f"""
-    <div style="margin-bottom: 30px;">
-        <span class='big-price'>{sym}{price:,.2f}</span>
-        <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
-        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Dividendo: <b>{div_str}</b></span>
-            {earnings_badge}
-            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>' if debt_str else ""}
-            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>' if sector and sector != "N/A" else ""}
-            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>' if country and country != "N/A" else ""}
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📊 Cap: <b>{fmt_big(mkt_cap)}</b></span>
-        </div>
+<div style="margin-bottom: 30px;">
+    <span class='big-price'>{sym}{price:,.2f}</span>
+    <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
+    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+        {_badges_html}
     </div>
+</div>
 """, unsafe_allow_html=True)
 
 # ── Add to Watchlist star ──
