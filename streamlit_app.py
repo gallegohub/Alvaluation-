@@ -34,11 +34,15 @@ st.markdown("""
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 300; letter-spacing: -1px; }
     .pine-code { background: rgba(0,0,0,0.2); border: 1px solid rgba(128,128,128,0.2); border-radius: 10px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; overflow-x: auto; white-space: pre; max-height: 400px; overflow-y: auto; }
     .stSlider > div > div > div > div { background-color: var(--primary-color); }
-    .big-price { font-family: 'JetBrains Mono', monospace; font-size: 5rem; font-weight: 300; line-height: 1; letter-spacing: -3px; margin: 0; padding: 0; }
-    .big-price-sub { font-size: 1.5rem; font-weight: 600; padding-left: 10px; }
+    @keyframes price-fade-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .big-price { font-family: 'JetBrains Mono', monospace; font-size: 5rem; font-weight: 300; line-height: 1; letter-spacing: -3px; margin: 0; padding: 0; display: inline-block; animation: price-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .big-price-sub { font-size: 1.5rem; font-weight: 600; padding-left: 10px; display: inline-block; animation: price-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
     .header-ticker { font-size: 1.5rem; font-weight: 600; opacity: 0.5; }
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; font-weight: 600; }
+    .stTabs [data-baseweb="tab-list"] { gap: 12px; overflow-x: auto; padding-bottom: 5px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: nowrap; font-weight: 600; padding: 0 10px; font-size: 0.9rem; }
     
     /* Clean Sidebar Buttons (Pills) */
     div[data-testid="stSidebar"] button {
@@ -372,6 +376,7 @@ def set_ticker(t):
 
 st.sidebar.markdown("### 🔍 Buscar Acción")
 ticker_input = st.sidebar.text_input(" ", placeholder="Escribe ticker o nombre...", key="ticker_input", label_visibility="collapsed")
+compare_ticker = st.sidebar.text_input("🆚 Comparar con...", placeholder="Ej: MSFT", key="compare_input").strip().upper()
 
 if ticker_input and len(ticker_input) > 1:
     search_res = search_ticker_by_name(ticker_input)
@@ -402,8 +407,109 @@ if "selected_market" not in st.session_state:
     st.session_state.selected_market = None
 
 if not ticker:
+    # ── Ticker Tape Banner ──
+    @st.cache_data(ttl=900, show_spinner=False)
+    def get_ticker_tape():
+        tape_indices = {
+            "S&P 500": "^GSPC", "Nasdaq 100": "^NDX", "Dow Jones": "^DJI",
+            "IBEX 35": "^IBEX", "Euro Stoxx 50": "^STOXX50E", "FTSE 100": "^FTSE",
+            "Nikkei 225": "^N225", "Hang Seng": "^HSI"
+        }
+        tape_items = []
+        try:
+            tickers_list = list(tape_indices.values())
+            h = yf.download(tickers_list, period="5d", progress=False)
+            if 'Close' in h:
+                closes = h['Close']
+                for name, tk in tape_indices.items():
+                    try:
+                        col = closes[tk].dropna() if isinstance(closes, pd.DataFrame) else closes.dropna()
+                        if len(col) >= 2:
+                            pct = (float(col.iloc[-1]) - float(col.iloc[-2])) / float(col.iloc[-2]) * 100
+                            tape_items.append({"name": name, "pct": pct})
+                        else:
+                            tape_items.append({"name": name, "pct": 0.0})
+                    except:
+                        tape_items.append({"name": name, "pct": 0.0})
+        except: pass
+        return tape_items
+
+    tape_data = get_ticker_tape()
+    
+    if tape_data:
+        tape_html_items = ""
+        for i, item in enumerate(tape_data):
+            pct = item["pct"]
+            sign = "+" if pct >= 0 else ""
+            color = "#00C853" if pct >= 0 else "#FF3D00"
+            arrow = "▲" if pct >= 0 else "▼"
+            sep = '<span style="margin: 0 20px; color: rgba(212,175,55,0.3);">◆</span>' if i < len(tape_data) - 1 else ''
+            tape_html_items += f'<span style="white-space: nowrap;"><span style="opacity: 0.55; font-weight: 400;">{item["name"]}</span>&nbsp;&nbsp;<span style="color: {color}; font-weight: 600;">{arrow} {sign}{pct:.2f}%</span></span>{sep}'
+        
+        # Triplicate for seamless loop
+        full_sep = '<span style="margin: 0 20px; color: rgba(212,175,55,0.3);">◆</span>'
+        tape_content = tape_html_items + full_sep + tape_html_items + full_sep + tape_html_items
+        
+        st.markdown(f"""
+        <style>
+            @keyframes ticker-scroll {{
+                0% {{ transform: translate3d(0, 0, 0); }}
+                100% {{ transform: translate3d(-33.333%, 0, 0); }}
+            }}
+            .ticker-tape-wrap {{
+                overflow: hidden;
+                position: relative;
+                background: linear-gradient(180deg, rgba(10,11,16,0.98) 0%, rgba(15,16,22,0.95) 100%);
+                border-top: 1px solid rgba(212, 175, 55, 0.2);
+                border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+                box-shadow: 0 2px 20px rgba(212, 175, 55, 0.06), inset 0 0 30px rgba(0,0,0,0.3);
+                padding: 12px 0;
+                margin-bottom: 20px;
+                border-radius: 8px;
+            }}
+            .ticker-tape-wrap::before,
+            .ticker-tape-wrap::after {{
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 60px;
+                z-index: 2;
+                pointer-events: none;
+            }}
+            .ticker-tape-wrap::before {{
+                left: 0;
+                background: linear-gradient(to right, rgba(10,11,16,1) 0%, transparent 100%);
+            }}
+            .ticker-tape-wrap::after {{
+                right: 0;
+                background: linear-gradient(to left, rgba(10,11,16,1) 0%, transparent 100%);
+            }}
+            .ticker-tape-inner {{
+                display: flex;
+                align-items: center;
+                width: max-content;
+                animation: ticker-scroll 45s linear infinite;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.82rem;
+                letter-spacing: 0.3px;
+                will-change: transform;
+                backface-visibility: hidden;
+                -webkit-font-smoothing: antialiased;
+            }}
+            .ticker-tape-wrap:hover .ticker-tape-inner {{
+                animation-play-state: paused;
+            }}
+        </style>
+        <div class="ticker-tape-wrap">
+            <div class="ticker-tape-inner">
+                {tape_content}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.markdown("""
-        <div style="text-align: center; margin-top: 4vh; margin-bottom: 20px;">
+        <div style="text-align: center; margin-top: 2vh; margin-bottom: 20px;">
             <h1 style='font-size: 3.5rem; font-weight: 300; letter-spacing: -2px; margin-bottom: 0;'>Explorador Global</h1>
             <p style='font-size: 1rem; opacity: 0.5; font-weight: 400; margin-top: 5px; letter-spacing: 0.5px;'>Selecciona un mercado brillante en el mapa para descubrir acciones</p>
         </div>
@@ -659,6 +765,13 @@ def fetch_data_v4(t, per, intv):
     try: insd = stock.insider_transactions
     except: pass
     
+    divs = pd.Series(dtype=float)
+    cal = {}
+    try: divs = stock.dividends
+    except: pass
+    try: cal = stock.calendar
+    except: pass
+    
     # 6. Noticias
     news_list = []
     try:
@@ -697,7 +810,7 @@ def fetch_data_v4(t, per, intv):
                     })
     except: pass
     
-    return {"info": inf, "income": inc if inc is not None else pd.DataFrame(), "balance": bal if bal is not None else pd.DataFrame(), "cashflow": cf if cf is not None else pd.DataFrame(), "hist": h, "news": news_list, "inst": inst if inst is not None else pd.DataFrame(), "insd": insd if insd is not None else pd.DataFrame()}, None
+    return {"info": inf, "income": inc if inc is not None else pd.DataFrame(), "balance": bal if bal is not None else pd.DataFrame(), "cashflow": cf if cf is not None else pd.DataFrame(), "hist": h, "news": news_list, "inst": inst if inst is not None else pd.DataFrame(), "insd": insd if insd is not None else pd.DataFrame(), "divs": divs, "cal": cal}, None
 
 with st.spinner(f"Cargando datos de **{ticker}**..."):
     try:
@@ -714,6 +827,8 @@ with st.spinner(f"Cargando datos de **{ticker}**..."):
         news_data = data_cache.get("news", [])
         inst_data = data_cache.get("inst", pd.DataFrame())
         insd_data = data_cache.get("insd", pd.DataFrame())
+        divs_data = data_cache.get("divs", pd.Series(dtype=float))
+        cal_data = data_cache.get("cal", {})
     except Exception as e:
         st.error(f"Error al cargar datos: {e}")
         st.stop()
@@ -757,6 +872,17 @@ elif dte > 0:
 else:
     debt_str = "⚪ Desconocido"
 
+earnings_date_str = ""
+try:
+    e_ts = info.get("nextEarningsDate") or info.get("earningsTimestamp")
+    if e_ts:
+        earnings_date_str = datetime.fromtimestamp(e_ts).strftime('%d %b %Y')
+    elif isinstance(cal_data, dict) and "Earnings Date" in cal_data:
+        earnings_date_str = pd.to_datetime(cal_data["Earnings Date"][0]).strftime('%d %b %Y')
+except: pass
+
+earnings_badge = f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📅 Resultados: <b>{earnings_date_str}</b></span>' if earnings_date_str else ""
+
 st.markdown(f"<h1 style='font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin-bottom: -15px;'>{name} <span style='font-weight: 300; opacity: 0.4; font-size: 1.5rem;'>{ticker}</span></h1>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="margin-bottom: 30px;">
@@ -764,6 +890,7 @@ st.markdown(f"""
         <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
         <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Dividendo: <b>{div_str}</b></span>
+            {earnings_badge}
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>
@@ -777,9 +904,58 @@ _per_val = mkt_cap / (income.iloc[:, 0].get("Net Income", 0) or 1) if not income
 _per_badge = f" 🟢" if 0 < _per_val < 20 else (f" 🔴" if _per_val > 35 else "")
 
 # ── Tabs ──
-tab_chart, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port, tab_news, tab_inst = st.tabs([
-    "📊 Gráfico", "🕯️ Análisis Técnico", "📈 Tendencias", f"💰 Valoración{_per_badge}", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera", "📰 Noticias", "🏦 Institucional"
+tab_chart, tab_compare, tab_ta, tab_fin, tab_val, tab_thesis, tab_backtest, tab_mc, tab_port, tab_news, tab_inst = st.tabs([
+    "📊 Gráfico", "🆚 Comparativa", "🕯️ Análisis Técnico", "📈 Tendencias", f"💰 Valoración{_per_badge}", "📝 Tesis", "🤖 Backtest", "🎲 Monte Carlo", "💼 Mi Cartera", "📰 Noticias", "🏦 Institucional"
 ])
+
+# ── Tab 2: Comparativa ──
+with tab_compare:
+    if compare_ticker:
+        st.markdown(f"### 🆚 Combate Cara a Cara: {ticker} vs {compare_ticker}")
+        with st.spinner(f"Cargando datos de {compare_ticker} para comparativa..."):
+            try:
+                comp_cache, comp_err = fetch_data_v4(compare_ticker, chart_period, chart_interval)
+                if comp_err:
+                    st.error(f"Error al cargar {compare_ticker}: {comp_err}")
+                else:
+                    c_info = comp_cache["info"]
+                    c_hist = comp_cache["hist"]
+                    
+                    c_price = c_info.get("currentPrice") or c_info.get("regularMarketPrice", 0)
+                    c_pe = c_info.get("forwardPE") or c_info.get("trailingPE", 0)
+                    c_div = c_info.get("dividendYield", 0) * 100 if c_info.get("dividendYield") else 0
+                    c_mkt = c_info.get("marketCap", 0)
+                    
+                    # Gráfico de Retorno Relativo
+                    if not hist.empty and not c_hist.empty:
+                        # Reindex to match
+                        common_idx = hist.index.intersection(c_hist.index)
+                        if len(common_idx) > 0:
+                            p1 = hist.loc[common_idx, 'Close']
+                            p2 = c_hist.loc[common_idx, 'Close']
+                            
+                            p1_pct = (p1 / p1.iloc[0] - 1) * 100
+                            p2_pct = (p2 / p2.iloc[0] - 1) * 100
+                            
+                            fig_comp = go.Figure()
+                            fig_comp.add_trace(go.Scatter(x=p1_pct.index, y=p1_pct, name=ticker, line=dict(color='#d4af37', width=2)))
+                            fig_comp.add_trace(go.Scatter(x=p2_pct.index, y=p2_pct, name=compare_ticker, line=dict(color='#00C853', width=2)))
+                            fig_comp.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
+                            fig_comp.update_yaxes(ticksuffix="%")
+                            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False})
+                    
+                    # Tabla Comparativa Frontal
+                    comp_metrics = {
+                        "Métrica": ["Capitalización", "PER", "Dividendo", "Deuda/Capital"],
+                        ticker: [fmt_big(mkt_cap), f"{info.get('trailingPE', 0):.1f}x", div_str, f"{info.get('debtToEquity', 0):.1f}%"],
+                        compare_ticker: [fmt_big(c_mkt), f"{c_pe:.1f}x", f"{c_div:.2f}%" if c_div > 0 else "0%", f"{c_info.get('debtToEquity', 0):.1f}%"]
+                    }
+                    st.table(pd.DataFrame(comp_metrics).set_index("Métrica"))
+                    
+            except Exception as e:
+                st.error(f"Fallo al comparar: {e}")
+    else:
+        st.info("👈 Introduce un ticker en el campo 'Comparar con...' del panel izquierdo para activar el modo comparativa institucional.")
 
 # ── Tab 1: Chart ──
 with tab_chart:
@@ -1024,6 +1200,33 @@ with tab_fin:
         cagr = ((revs[-1] / revs[0]) ** (1 / (len(revs) - 1)) - 1) * 100
         st.markdown(f"<p style='text-align: center; color: var(--primary-color); font-weight: 600;'>Crecimiento Histórico de Ingresos (CAGR): +{cagr:.1f}% anual</p>", unsafe_allow_html=True)
 
+    # Dividend History
+    if not divs_data.empty:
+        st.divider()
+        st.markdown("#### 💸 Historial de Dividendos Pagados")
+        if isinstance(divs_data.index, pd.DatetimeIndex):
+            divs_yearly = divs_data.groupby(divs_data.index.year).sum()
+            divs_yearly = divs_yearly.tail(10)
+            
+            fig_divs = go.Figure(data=go.Bar(
+                x=divs_yearly.index, 
+                y=divs_yearly.values, 
+                marker_color='#00C853',
+                text=[f"${v:.2f}" for v in divs_yearly.values],
+                textposition='auto',
+                textfont=dict(color='white', family='JetBrains Mono')
+            ))
+            fig_divs.update_layout(
+                height=250, 
+                margin=dict(l=0, r=0, t=20, b=0), 
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)", 
+                font=dict(family="Inter"),
+                xaxis=dict(type='category')
+            )
+            fig_divs.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
+            st.plotly_chart(fig_divs, use_container_width=True, config={'displayModeBar': False})
+
 
 # ── Tab 4: Centro de Valoración ──
 with tab_val:
@@ -1100,6 +1303,7 @@ with tab_val:
         user_term_g = col_tg.slider("Crecimiento Terminal (%)", min_value=0.0, max_value=4.0, value=float(calc_terminal_g*100), step=0.1) / 100.0
 
         wacc, growth, terminal_g = user_wacc, user_growth, user_term_g
+
         proj_years = 5
         proj_fcf, disc_fcf = [], []
         for i in range(1, proj_years + 1):
@@ -1848,21 +2052,41 @@ with tab_port:
         total_value = 0
         
         with st.spinner("Sincronizando con mercado en tiempo real..."):
-            for t, shares in list(port.items()):
-                if shares > 0:
-                    try:
-                        tk_obj = yf.Ticker(t)
-                        p_info = tk_obj.fast_info
-                        p_price = p_info.last_price
-                        val = p_price * shares
-                        total_value += val
-                        try:
-                            name = tk_obj.info.get("shortName", t)
-                        except:
-                            name = t
-                        port_data.append({"Ticker": t, "Empresa": name, "Acciones": shares, "Precio": p_price, "Valor Total": val})
-                    except: pass
-                else:
+            valid_tks_port = [t for t, sh in port.items() if sh > 0]
+            if valid_tks_port:
+                try:
+                    # Descarga masiva para hacer el sparkline y pillar el precio
+                    h_port = yf.download(valid_tks_port, period="1mo", progress=False)
+                    if 'Close' in h_port:
+                        closes_port = h_port['Close']
+                        if isinstance(closes_port, pd.Series):
+                            closes_port = closes_port.to_frame()
+                        
+                        for t in valid_tks_port:
+                            if t in closes_port.columns:
+                                col = closes_port[t].dropna()
+                                if len(col) > 0:
+                                    p_price = float(col.iloc[-1])
+                                    shares = port[t]
+                                    val = p_price * shares
+                                    total_value += val
+                                    
+                                    # Generar lista de valores para el sparkline
+                                    sparkline_data = col.tolist()
+                                    
+                                    port_data.append({
+                                        "Ticker": t, 
+                                        "Empresa": t, 
+                                        "Acciones": shares, 
+                                        "Precio": p_price, 
+                                        "Valor Total": val,
+                                        "Tendencia (1M)": sparkline_data
+                                    })
+                except Exception as e:
+                    st.warning(f"Error sincronizando mercado: {e}")
+                    
+            for t in list(port.keys()):
+                if port[t] <= 0:
                     del st.session_state["portfolio"][t]
                 
         if port_data:
@@ -1886,9 +2110,10 @@ with tab_port:
             with c_port1:
                 st.markdown("<h4 style='color: #d4af37;'>📑 Desglose de Activos</h4>", unsafe_allow_html=True)
                 st.dataframe(
-                    df_port[["Empresa", "Acciones", "Precio", "Valor Total", "Peso %"]],
+                    df_port[["Empresa", "Acciones", "Precio", "Tendencia (1M)", "Valor Total", "Peso %"]],
                     column_config={
                         "Precio": st.column_config.NumberColumn("Precio", format="$%.2f"),
+                        "Tendencia (1M)": st.column_config.LineChartColumn("Tendencia (1M)"),
                         "Valor Total": st.column_config.NumberColumn("Valor Total", format="$%.2f"),
                         "Peso %": st.column_config.ProgressColumn("Peso %", format="%.1f%%", min_value=0, max_value=100)
                     },
