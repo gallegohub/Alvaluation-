@@ -795,7 +795,7 @@ def fetch_data_v4(t, per, intv):
         inf["sharesOutstanding"] = int(fi.shares) if getattr(fi, "shares", None) else 1
     except: pass
     
-    # 3. Info completa (Suele dar error de Rate Limit, si falla no pasa nada)
+    # 3. Info completa (Suele dar error de Rate Limit en la nube)
     try: 
         i_full = stock.info
         if i_full:
@@ -804,6 +804,26 @@ def fetch_data_v4(t, per, intv):
                 if isinstance(v, (int, float, str, bool)):
                     inf[k] = v
     except: pass
+    
+    # 3b. Respaldo directo a la API oculta de Yahoo si falló `info`
+    if "sector" not in inf or "totalDebt" not in inf:
+        import requests
+        try:
+            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{t}?modules=summaryProfile,financialData"
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            res = requests.get(url, headers=headers, timeout=3)
+            if res.status_code == 200:
+                data = res.json().get("quoteSummary", {}).get("result", [])[0]
+                if "summaryProfile" in data:
+                    inf["sector"] = data["summaryProfile"].get("sector", inf.get("sector"))
+                    inf["industry"] = data["summaryProfile"].get("industry", inf.get("industry"))
+                    inf["country"] = data["summaryProfile"].get("country", inf.get("country"))
+                if "financialData" in data:
+                    fd = data["financialData"]
+                    if "totalCash" in fd: inf["totalCash"] = fd.get("totalCash", {}).get("raw", 0)
+                    if "totalDebt" in fd: inf["totalDebt"] = fd.get("totalDebt", {}).get("raw", 0)
+                    if "debtToEquity" in fd: inf["debtToEquity"] = fd.get("debtToEquity", {}).get("raw", 0)
+        except: pass
     
     # 4. Respaldo crítico: Si todo falla, sacamos el precio del histórico
     if not inf.get("currentPrice") and not inf.get("regularMarketPrice"):
