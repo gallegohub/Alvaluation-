@@ -766,7 +766,6 @@ if not ticker:
 # ── Load Data ──
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_data_v4(t, per, intv):
-    # 1. Histórico mediante yf.download (Mucho más resistente a baneos en la nube)
     h = pd.DataFrame()
     try:
         h_dl = yf.download(t, period=per, interval=intv, progress=False)
@@ -935,7 +934,7 @@ elif dte > 100:
 elif dte > 0:
     debt_str = "<span style='color: #d4af37;'>🟡 Deuda Moderada</span>"
 else:
-    debt_str = "⚪ Desconocido"
+    debt_str = ""
 
 earnings_date_str = ""
 try:
@@ -956,9 +955,9 @@ st.markdown(f"""
         <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">💰 Dividendo: <b>{div_str}</b></span>
             {earnings_badge}
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>
-            <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>
+            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏦 {debt_str}</span>' if debt_str else ""}
+            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🏢 {sector}</span>' if sector and sector != "N/A" else ""}
+            {f'<span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">🌍 {country}</span>' if country and country != "N/A" else ""}
             <span style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.85rem;">📊 Cap: <b>{fmt_big(mkt_cap)}</b></span>
         </div>
     </div>
