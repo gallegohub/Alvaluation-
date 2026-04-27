@@ -1339,6 +1339,43 @@ with tab_ta:
                         
                     cc3.metric("Ratio Put/Call", f"{pc_ratio:.2f}", help=">1.2 indica miedo extremo (Puts). <0.7 indica euforia (Calls).")
                     st.markdown(f"<div class='glow-hover' style='border: 1px solid {col_s}; padding: 10px; border-radius: 8px; text-align: center; color: {col_s}; font-weight: 600;'>Veredicto Institucional a corto plazo: {sent} (Vencimiento: {exp_date})</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("#### 🗺️ Mapa de Calor Institucional (Open Interest)")
+                    st.markdown("<p style='font-size:0.8rem; opacity:0.7; margin-top:-10px;'>¿Dónde están posicionadas las grandes carteras institucionales? Muestra las apuestas vivas por precio (Strike).</p>", unsafe_allow_html=True)
+                    
+                    try:
+                        calls_df = chain.calls[['strike', 'openInterest']].copy()
+                        calls_df['Tipo'] = 'CALLS (Alcista)'
+                        puts_df = chain.puts[['strike', 'openInterest']].copy()
+                        puts_df['Tipo'] = 'PUTS (Bajista)'
+                        
+                        curr_p = hist['Close'].iloc[-1] if not hist.empty else 0
+                        opts_df = pd.concat([calls_df, puts_df]).dropna()
+                        
+                        if curr_p > 0 and not opts_df.empty:
+                            # Filtrar solo strikes relevantes (+/- 25% del precio actual)
+                            opts_df = opts_df[(opts_df['strike'] >= curr_p * 0.75) & (opts_df['strike'] <= curr_p * 1.25)]
+                            
+                        if not opts_df.empty:
+                            pivot_opts = opts_df.pivot(index='Tipo', columns='strike', values='openInterest').fillna(0)
+                            
+                            fig_hm = go.Figure(data=go.Heatmap(
+                                z=pivot_opts.values,
+                                x=pivot_opts.columns,
+                                y=pivot_opts.index,
+                                colorscale='Aggrnyl',  # Estilo financiero/terminal
+                                hovertemplate='Strike: %{x}<br>Tipo: %{y}<br>Contratos Abiertos: %{z}<extra></extra>'
+                            ))
+                            fig_hm.update_layout(
+                                height=200, margin=dict(l=0, r=0, t=20, b=0),
+                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                font=dict(family="Inter")
+                            )
+                            fig_hm.add_vline(x=curr_p, line_dash="dash", line_color="white", annotation_text="Precio Actual", annotation_font=dict(color="white"))
+                            st.plotly_chart(fig_hm, use_container_width=True, config={'displayModeBar': False})
+                    except Exception as e:
+                        st.info("No se pudo generar el heatmap de opciones para esta fecha.")
+                        
                 else:
                     st.info("Poco volumen de opciones para esta fecha.")
             else:
@@ -2532,23 +2569,56 @@ with tab_port:
 
     st.markdown("<div style='background: rgba(128,128,128,0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.2); margin-bottom: 25px;'><p style='margin-top:0; margin-bottom: 15px; color: #d4af37; font-weight: 600; font-size: 0.95rem;'><i class='fas fa-shopping-cart'></i> 🛒 Terminal de Compras (Añadir Activos)</p>", unsafe_allow_html=True)
     
-    c_add1, c_add2, c_add3 = st.columns([2, 1, 1])
+    c_add1, c_add2, c_add3, c_add4 = st.columns([2, 1, 1, 1])
     port_choice = c_add1.selectbox("Activo", options=all_options, index=None, placeholder="-- Buscar en lista global --", label_visibility="collapsed")
     custom_add = c_add1.text_input("Ticker manual", placeholder="...o escribe un ticker manual (Ej: TSLA)", key="custom_tk", label_visibility="collapsed")
     
-    port_shares = c_add2.number_input("Acciones a comprar", min_value=0.0, step=1.0, value=1.0, key="p_sh", label_visibility="collapsed")
+    tk_preview = None
+    if custom_add and custom_add.strip():
+        tk_preview = custom_add.strip().upper()
+    elif port_choice:
+        tk_preview = port_choice.split(" - ")[0].strip().upper()
+        
+    default_price = 0.0
+    if tk_preview:
+        if tk_preview == ticker:
+            default_price = float(price) if price else 0.0
+        else:
+            try:
+                fast_p = yf.Ticker(tk_preview).fast_info.get("lastPrice")
+                if fast_p: default_price = float(fast_p)
+            except: pass
+            
+    port_shares = c_add2.number_input("Nº Acciones", min_value=0.0, step=1.0, value=1.0, key="p_sh", help="Cantidad de acciones compradas")
     
-    if c_add3.button("➕ Añadir a Cartera", use_container_width=True, type="primary"):
+    # Clave dinámica para que Streamlit refresque el valor automáticamente si cambia la acción o la cantidad
+    dyn_key = f"p_pr_{tk_preview}_{port_shares}"
+    port_cost = c_add3.number_input("Coste Total ($)", min_value=0.0, step=0.01, value=float(default_price * port_shares), key=dyn_key, help="Coste total (Precio actual x Nº Acciones). Puedes editarlo manualmente.")
+    
+    if c_add4.button("➕ Añadir a Cartera", use_container_width=True, type="primary"):
+        tk_add = None
         if custom_add and custom_add.strip():
             tk_add = custom_add.strip().upper()
-            st.session_state["portfolio"][tk_add] = port_shares
-            st.rerun()
         elif port_choice:
             tk_add = port_choice.split(" - ")[0].strip().upper()
-            st.session_state["portfolio"][tk_add] = port_shares
+            
+        if tk_add and port_shares > 0:
+            current_port = st.session_state["portfolio"].get(tk_add, {})
+            # Backward compatibility check
+            if isinstance(current_port, (int, float)): 
+                current_port = {"shares": current_port, "price": port_cost / port_shares if port_shares > 0 else 0}
+                
+            old_shares = current_port.get("shares", 0)
+            old_price = current_port.get("price", 0)
+            
+            total_cost = (old_shares * old_price) + port_cost
+            new_shares = old_shares + port_shares
+            new_avg_price = total_cost / new_shares if new_shares > 0 else 0
+            
+            st.session_state["portfolio"][tk_add] = {"shares": new_shares, "price": new_avg_price}
             st.rerun()
             
-    if c_add3.button("🗑️ Vaciar Cartera", use_container_width=True):
+    if c_add4.button("🗑️ Vaciar Cartera", use_container_width=True):
         st.session_state["portfolio"] = {}
         st.rerun()
         
@@ -2560,7 +2630,15 @@ with tab_port:
         total_value = 0
         
         with st.spinner("Sincronizando con mercado en tiempo real..."):
-            valid_tks_port = [t for t, sh in port.items() if sh > 0]
+            valid_tks_port = []
+            for t, val in port.items():
+                if isinstance(val, (int, float)) and val > 0:
+                    valid_tks_port.append(t)
+                    # auto-upgrade
+                    port[t] = {"shares": val, "price": 0.0}
+                elif isinstance(val, dict) and val.get("shares", 0) > 0:
+                    valid_tks_port.append(t)
+                    
             if valid_tks_port:
                 try:
                     # Descarga masiva para hacer el sparkline y pillar el precio
@@ -2575,9 +2653,15 @@ with tab_port:
                                 col = closes_port[t].dropna()
                                 if len(col) > 0:
                                     p_price = float(col.iloc[-1])
-                                    shares = port[t]
+                                    p_data = port[t]
+                                    shares = p_data.get("shares", 0)
+                                    buy_price = p_data.get("price", 0)
+                                    
                                     val = p_price * shares
                                     total_value += val
+                                    
+                                    pnl_dol = (p_price - buy_price) * shares if buy_price > 0 else 0
+                                    pnl_pct = ((p_price / buy_price) - 1) * 100 if buy_price > 0 else 0
                                     
                                     # Generar lista de valores para el sparkline
                                     sparkline_data = col.tolist()
@@ -2586,20 +2670,33 @@ with tab_port:
                                         "Ticker": t, 
                                         "Empresa": t, 
                                         "Acciones": shares, 
-                                        "Precio": p_price, 
-                                        "Valor Total": val,
-                                        "Tendencia (1M)": sparkline_data
+                                        "P. Medio": buy_price,
+                                        "Actual": p_price,
+                                        "Retorno %": pnl_pct,
+                                        "PnL Total": pnl_dol,
+                                        "Tendencia (1M)": sparkline_data,
+                                        "Valor Total": val
                                     })
                 except Exception as e:
                     st.warning(f"Error sincronizando mercado: {e}")
                     
             for t in list(port.keys()):
-                if port[t] <= 0:
+                val = port[t]
+                if isinstance(val, (int, float)) and val <= 0:
+                    del st.session_state["portfolio"][t]
+                elif isinstance(val, dict) and val.get("shares", 0) <= 0:
                     del st.session_state["portfolio"][t]
                 
         if port_data:
             port_data = sorted(port_data, key=lambda x: x["Valor Total"], reverse=True)
             for d in port_data: d["Peso %"] = (d["Valor Total"] / total_value) * 100
+            
+            total_invested = sum([port[t].get("shares", 0) * port[t].get("price", 0) for t in valid_tks_port if isinstance(port[t], dict)])
+            total_pnl = total_value - total_invested if total_invested > 0 else 0
+            total_pnl_pct = (total_pnl / total_invested) * 100 if total_invested > 0 else 0
+            
+            pnl_col = color_up if total_pnl >= 0 else color_down
+            pnl_sign = "+" if total_pnl >= 0 else ""
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(f"""
@@ -2608,19 +2705,23 @@ with tab_port:
                 <h1 style='font-family: "JetBrains Mono", monospace; font-size: 4.8rem; font-weight: 300; margin: 5px 0; color: #ffffff; text-shadow: 0 0 25px rgba(212,175,55,0.25); letter-spacing: -2px;'>
                     <span style='color: #d4af37; opacity: 0.8;'>$</span>{total_value:,.2f}
                 </h1>
+                <p style='font-size: 1.1rem; color: {pnl_col}; margin: 5px 0; font-weight: 600;'>Beneficio/Pérdida No Realizada: {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.2f}%)</p>
                 <p style='font-size: 0.8rem; opacity: 0.5; margin: 0; letter-spacing: 1px;'>ACTUALIZADO EN TIEMPO REAL</p>
             </div>
             """, unsafe_allow_html=True)
             
             df_port = pd.DataFrame(port_data).set_index("Ticker")
             
-            c_port1, c_port2 = st.columns([1.3, 1])
+            c_port1, c_port2 = st.columns([1.5, 1])
             with c_port1:
                 st.markdown("<h4 style='color: #d4af37;'>📑 Desglose de Activos</h4>", unsafe_allow_html=True)
                 st.dataframe(
-                    df_port[["Empresa", "Acciones", "Precio", "Tendencia (1M)", "Valor Total", "Peso %"]],
+                    df_port[["Empresa", "Acciones", "P. Medio", "Actual", "Retorno %", "PnL Total", "Tendencia (1M)", "Valor Total", "Peso %"]],
                     column_config={
-                        "Precio": st.column_config.NumberColumn("Precio", format="$%.2f"),
+                        "P. Medio": st.column_config.NumberColumn("P. Compra", format="$%.2f"),
+                        "Actual": st.column_config.NumberColumn("Actual", format="$%.2f"),
+                        "Retorno %": st.column_config.NumberColumn("Retorno %", format="%.2f%%"),
+                        "PnL Total": st.column_config.NumberColumn("PnL Total", format="$%.2f"),
                         "Tendencia (1M)": st.column_config.LineChartColumn("Tendencia (1M)"),
                         "Valor Total": st.column_config.NumberColumn("Valor Total", format="$%.2f"),
                         "Peso %": st.column_config.ProgressColumn("Peso %", format="%.1f%%", min_value=0, max_value=100)
@@ -2730,7 +2831,7 @@ with tab_port:
                 with st.spinner("Calculando matriz de covarianza y simulando 1.000 futuros globales..."):
                     try:
                         port_hists = {}
-                        valid_tks = [tk for tk, sh in port.items() if sh > 0]
+                        valid_tks = [tk for tk, val in port.items() if (val.get("shares", 0) if isinstance(val, dict) else val) > 0]
                         if valid_tks:
                             h_d = yf.download(valid_tks, period="1y", progress=False)
                             if 'Close' in h_d:
@@ -2753,8 +2854,8 @@ with tab_port:
                                 mu_array = daily_returns.mean().values
                                 
                                 # Pesos actuales exactos
-                                sim_total_val = sum([port[tk] * df_p[tk].iloc[-1] for tk in df_p.columns])
-                                weights = np.array([(port[tk] * df_p[tk].iloc[-1]) / sim_total_val for tk in df_p.columns])
+                                sim_total_val = sum([(port[tk].get("shares", 0) if isinstance(port[tk], dict) else port[tk]) * df_p[tk].iloc[-1] for tk in df_p.columns])
+                                weights = np.array([((port[tk].get("shares", 0) if isinstance(port[tk], dict) else port[tk]) * df_p[tk].iloc[-1]) / sim_total_val for tk in df_p.columns])
                             
                                 days = 252
                                 sims = 1000
@@ -2902,6 +3003,7 @@ with tab_inst:
                 st.dataframe(df_insd_show.head(15), use_container_width=True, hide_index=True)
         else:
             st.info("No se han registrado operaciones de insiders recientemente.")
+
 
 # ── Export PDF / HTML ──
 if ticker and not income.empty:
