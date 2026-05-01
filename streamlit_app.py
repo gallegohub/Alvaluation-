@@ -1096,12 +1096,33 @@ with tab_compare:
                             p1_pct = (p1 / p1.iloc[0] - 1) * 100
                             p2_pct = (p2 / p2.iloc[0] - 1) * 100
                             
+                            n_comp = len(p1_pct)
+                            x_comp_idx = np.arange(n_comp)
+                            is_intra_comp = (p1_pct.index[1] - p1_pct.index[0]).total_seconds() < 86400 if n_comp > 1 else False
+                            comp_labels = p1_pct.index.strftime('%d %b %H:%M' if is_intra_comp else '%d %b %Y')
+                            comp_step = max(1, n_comp // 10)
+                            comp_tick_pos = list(range(0, n_comp, comp_step))
+                            comp_tick_txt = [comp_labels[i] for i in comp_tick_pos]
+                            
                             fig_comp = go.Figure()
-                            fig_comp.add_trace(go.Scatter(x=p1_pct.index, y=p1_pct, name=ticker, line=dict(color='#d4af37', width=2)))
-                            fig_comp.add_trace(go.Scatter(x=p2_pct.index, y=p2_pct, name=compare_ticker, line=dict(color='#00C853', width=2)))
-                            fig_comp.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(family="Inter"))
-                            fig_comp.update_yaxes(ticksuffix="%")
-                            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False})
+                            fig_comp.add_trace(go.Scatter(x=x_comp_idx, y=p1_pct.values, name=ticker, line=dict(color='#d4af37', width=2.5)))
+                            fig_comp.add_trace(go.Scatter(x=x_comp_idx, y=p2_pct.values, name=compare_ticker, line=dict(color='#26a69a', width=2.5)))
+                            fig_comp.update_layout(
+                                height=400, margin=dict(l=0, r=50, t=30, b=0), 
+                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(10,11,16,1)", 
+                                font=dict(family="Inter", size=11, color="rgba(255,255,255,0.55)"), hovermode="x unified",
+                                hoverlabel=dict(bgcolor="rgba(30,30,30,0.95)", font_family="JetBrains Mono", bordercolor="rgba(255,255,255,0.15)")
+                            )
+                            fig_comp.update_xaxes(
+                                tickvals=comp_tick_pos, ticktext=comp_tick_txt,
+                                showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                                showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)"
+                            )
+                            fig_comp.update_yaxes(
+                                ticksuffix="%", showgrid=True, gridcolor="rgba(255,255,255,0.04)", side="right",
+                                showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)"
+                            )
+                            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': True})
                     
                     # Tabla Comparativa Frontal
                     comp_metrics = {
@@ -1168,66 +1189,121 @@ with tab_chart:
                             vertical_spacing=0.03, subplot_titles=titles if len(titles) > 1 else None,
                             row_width=row_heights[::-1])
 
-        # Main Chart Trace
-        # We determine main trend color for line chart based on first and last price in the window
-        overall_trend_color = color_up if hist['Close'].iloc[-1] >= hist['Close'].iloc[0] else color_down
+        # ── Eje X numérico con etiquetas de fecha (ultra-rápido, sin saltos) ──
+        # Usamos índices enteros (0,1,2,...) como eje X real → Plotly renderiza sin gaps y sin lag.
+        # Las etiquetas de fecha se muestran sólo en los ticks seleccionados vía tickvals/ticktext.
+        n_bars = len(hist)
+        x_idx = np.arange(n_bars)
+        
+        is_intraday = (hist.index[1] - hist.index[0]).total_seconds() < 86400 if n_bars > 1 else False
+        date_fmt = '%d %b %H:%M' if is_intraday else '%d %b %Y'
+        all_labels = hist.index.strftime(date_fmt)
+        
+        # Seleccionar ~12 etiquetas equiespaciadas para el eje
+        n_ticks = min(12, n_bars)
+        tick_step = max(1, n_bars // n_ticks)
+        tick_positions = list(range(0, n_bars, tick_step))
+        tick_labels = [all_labels[i] for i in tick_positions]
+        
+        # Colores TradingView
+        tv_up = '#26a69a'    # Verde TradingView
+        tv_down = '#ef5350'  # Rojo TradingView
+        
+        # Color de tendencia principal (para línea)
+        overall_trend_color = tv_up if hist['Close'].iloc[-1] >= hist['Close'].iloc[0] else tv_down
         
         if chart_type == "Línea Minimalista":
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], line=dict(color=overall_trend_color, width=2),
-                                     fill='tozeroy', fillcolor=overall_trend_color.replace(')', ', 0.1)').replace('rgb', 'rgba') if 'rgb' in overall_trend_color else f"rgba(128,128,128,0.1)",
-                                     name='Precio'), row=1, col=1)
+            fig.add_trace(go.Scatter(
+                x=x_idx, y=hist['Close'].values,
+                line=dict(color=overall_trend_color, width=2),
+                name='Precio', hovertemplate='%{customdata}<br>Precio: %{y:,.2f}<extra></extra>',
+                customdata=all_labels
+            ), row=1, col=1)
         else:
-            fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], 
-                                         increasing_line_color=color_up, decreasing_line_color=color_down, name='Precio'), row=1, col=1)
+            fig.add_trace(go.Candlestick(
+                x=x_idx,
+                open=hist['Open'].values, high=hist['High'].values,
+                low=hist['Low'].values, close=hist['Close'].values,
+                increasing_line_color=tv_up, decreasing_line_color=tv_down,
+                increasing_fillcolor=tv_up, decreasing_fillcolor=tv_down,
+                line=dict(width=1),
+                name='Precio'
+            ), row=1, col=1)
         
         if show_sma:
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['SMA_50'], line=dict(color='orange', width=1), name='SMA 50'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['SMA_200'], line=dict(color='#00b4d8', width=1), name='SMA 200'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=x_idx, y=hist['SMA_50'].values, line=dict(color='#ff9800', width=1.5, dash='solid'), name='SMA 50', hoverinfo='skip'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=x_idx, y=hist['SMA_200'].values, line=dict(color='#42a5f5', width=1.5, dash='solid'), name='SMA 200', hoverinfo='skip'), row=1, col=1)
         
         if show_patterns:
-            bull_dates = hist[hist['bullish_eng']].index
-            bull_prices = hist.loc[hist['bullish_eng'], 'Low'] * 0.98
-            fig.add_trace(go.Scatter(x=bull_dates, y=bull_prices, mode='markers', marker=dict(symbol='triangle-up', size=10, color=color_up), name='Envolvente Alcista', hoverinfo='name'), row=1, col=1)
+            bull_idx = np.where(hist['bullish_eng'].values)[0]
+            if len(bull_idx) > 0:
+                bull_prices = hist['Low'].values[bull_idx] * 0.98
+                fig.add_trace(go.Scatter(x=bull_idx, y=bull_prices, mode='markers', marker=dict(symbol='triangle-up', size=12, color=tv_up), name='Envolvente Alcista', hoverinfo='name'), row=1, col=1)
 
-            bear_dates = hist[hist['bearish_eng']].index
-            bear_prices = hist.loc[hist['bearish_eng'], 'High'] * 1.02
-            fig.add_trace(go.Scatter(x=bear_dates, y=bear_prices, mode='markers', marker=dict(symbol='triangle-down', size=10, color=color_down), name='Envolvente Bajista', hoverinfo='name'), row=1, col=1)
+            bear_idx = np.where(hist['bearish_eng'].values)[0]
+            if len(bear_idx) > 0:
+                bear_prices = hist['High'].values[bear_idx] * 1.02
+                fig.add_trace(go.Scatter(x=bear_idx, y=bear_prices, mode='markers', marker=dict(symbol='triangle-down', size=12, color=tv_down), name='Envolvente Bajista', hoverinfo='name'), row=1, col=1)
 
-            hammer_dates = hist[hist['is_hammer']].index
-            hammer_prices = hist.loc[hist['is_hammer'], 'Low'] * 0.96
-            fig.add_trace(go.Scatter(x=hammer_dates, y=hammer_prices, mode='markers', marker=dict(symbol='star', size=8, color='yellow'), name='Martillo', hoverinfo='name'), row=1, col=1)
+            hammer_idx = np.where(hist['is_hammer'].values)[0]
+            if len(hammer_idx) > 0:
+                hammer_prices = hist['Low'].values[hammer_idx] * 0.96
+                fig.add_trace(go.Scatter(x=hammer_idx, y=hammer_prices, mode='markers', marker=dict(symbol='star', size=10, color='#fdd835'), name='Martillo', hoverinfo='name'), row=1, col=1)
         
         curr_row = 1
         
         if show_vol:
             curr_row += 1
-            colors_vol = [color_up if row['Close'] >= row['Open'] else color_down for _, row in hist.iterrows()]
-            fig.add_trace(go.Bar(x=hist.index, y=hist['Volume'], name='Volumen', marker_color=colors_vol, opacity=0.5), row=curr_row, col=1)
+            colors_vol = np.where(hist['Close'].values >= hist['Open'].values, tv_up, tv_down)
+            fig.add_trace(go.Bar(x=x_idx, y=hist['Volume'].values, name='Volumen', marker_color=colors_vol, opacity=0.5), row=curr_row, col=1)
 
         if show_osc:
             curr_row += 1
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['RSI'], name='RSI', line=dict(color='purple', width=1.5)), row=curr_row, col=1)
-            fig.add_hline(y=70, line_dash="dot", row=curr_row, col=1, line_color=color_down, opacity=0.5)
-            fig.add_hline(y=30, line_dash="dot", row=curr_row, col=1, line_color=color_up, opacity=0.5)
+            fig.add_trace(go.Scatter(x=x_idx, y=hist['RSI'].values, name='RSI', line=dict(color='#ab47bc', width=1.5)), row=curr_row, col=1)
+            fig.add_hline(y=70, line_dash="dot", row=curr_row, col=1, line_color=tv_down, opacity=0.4)
+            fig.add_hline(y=30, line_dash="dot", row=curr_row, col=1, line_color=tv_up, opacity=0.4)
             
-            colors_macd = [color_up if val >= 0 else color_down for val in hist['MACD_Hist']]
-            fig.add_trace(go.Bar(x=hist.index, y=hist['MACD_Hist'], name='MACD Hist', marker_color=colors_macd, opacity=0.5), row=curr_row, col=1)
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['MACD'], line=dict(color='blue', width=1), name='MACD'), row=curr_row, col=1)
-            fig.add_trace(go.Scatter(x=hist.index, y=hist['Signal'], line=dict(color='orange', width=1), name='Signal'), row=curr_row, col=1)
+            colors_macd = np.where(hist['MACD_Hist'].values >= 0, tv_up, tv_down)
+            fig.add_trace(go.Bar(x=x_idx, y=hist['MACD_Hist'].values, name='MACD Hist', marker_color=colors_macd, opacity=0.5), row=curr_row, col=1)
+            fig.add_trace(go.Scatter(x=x_idx, y=hist['MACD'].values, line=dict(color='#42a5f5', width=1.5), name='MACD'), row=curr_row, col=1)
+            fig.add_trace(go.Scatter(x=x_idx, y=hist['Signal'].values, line=dict(color='#ff9800', width=1.5), name='Signal'), row=curr_row, col=1)
 
         fig.update_layout(
-            height=400 + (120 if show_vol else 0) + (200 if show_osc else 0),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=10, b=0),
-            font=dict(family="Inter"),
+            height=450 + (130 if show_vol else 0) + (200 if show_osc else 0),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(10,11,16,1)",
+            margin=dict(l=0, r=50, t=8, b=0),
+            font=dict(family="Inter", size=11, color="rgba(255,255,255,0.55)"),
             dragmode='pan',
             showlegend=False,
-            hovermode='x unified'
+            hovermode='x unified',
+            hoverlabel=dict(
+                bgcolor="rgba(30,30,30,0.95)",
+                font_size=12,
+                font_family="JetBrains Mono",
+                bordercolor="rgba(255,255,255,0.15)"
+            )
         )
-        fig.update_xaxes(rangeslider_visible=False, showgrid=False)
-        fig.update_yaxes(showgrid=True, gridcolor="rgba(128,128,128,0.1)")
         
-        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': False, 'displayModeBar': False}, theme="streamlit")
+        # Ejes configurados para velocidad y estética TradingView
+        fig.update_xaxes(
+            tickvals=tick_positions, ticktext=tick_labels,
+            showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+            zeroline=False,
+            showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)",
+            rangeslider_visible=False
+        )
+        fig.update_yaxes(
+            showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+            zeroline=False, side="right",
+            showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True, config={
+            'scrollZoom': True, 
+            'displayModeBar': True,
+            'modeBarButtonsToRemove': ['lasso2d', 'select2d', 'autoScale2d'],
+            'displaylogo': False
+        })
 
     # ── Investment Score (Gauge) inside Chart tab ──
     st.divider()
