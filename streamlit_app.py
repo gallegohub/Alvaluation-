@@ -2553,14 +2553,34 @@ with tab_mc:
     target_mc = st.number_input(f"¿A qué precio te gustaría que llegase esta acción a final de año?", min_value=0.0, value=float(price)*1.2 if price else 100.0, step=1.0)
         
     if st.button("Ejecutar 1.000 Simulaciones Institucionales", use_container_width=True):
-        if not hist.empty and len(hist) > 50:
-            returns = hist['Close'].pct_change().dropna()
+        with st.spinner("Descargando histórico diario para cálculo de volatilidad..."):
+            try:
+                mc_hist = yf.download(ticker, period="2y", interval="1d", progress=False)
+                if isinstance(mc_hist.columns, pd.MultiIndex):
+                    mc_hist = mc_hist.xs(ticker, axis=1, level=1) if ticker in mc_hist.columns.get_level_values(1) else mc_hist
+                if mc_hist.empty:
+                    mc_hist = yf.Ticker(ticker).history(period="2y", interval="1d")
+            except:
+                mc_hist = hist
+                
+        if not mc_hist.empty and len(mc_hist) > 20:
+            returns = mc_hist['Close'].pct_change().dropna()
+            
+            # Ajuste de escala si los datos son intradiarios (por si falla el fetch y usa hist)
+            is_intra = (mc_hist.index[1] - mc_hist.index[0]).total_seconds() < 86400 if len(mc_hist) > 1 else False
+            
             mu = returns.mean()
             sigma = returns.std()
             
+            # Si es intradiario, anualizamos mu y sigma de forma aproximada (ej. 1h -> 7 barras al día)
+            if is_intra:
+                bars_per_day = 86400 / max((mc_hist.index[1] - mc_hist.index[0]).total_seconds(), 60)
+                mu = mu * bars_per_day
+                sigma = sigma * np.sqrt(bars_per_day)
+            
             days = 252 # 1 trading year
             simulations = 1000
-            last_price = float(hist['Close'].iloc[-1])
+            last_price = float(mc_hist['Close'].iloc[-1])
             
             paths = np.zeros((days, simulations))
             paths[0] = last_price
