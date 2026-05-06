@@ -672,47 +672,106 @@ st.sidebar.divider()
 _current_ticker = st.session_state.get("ticker_input", "").strip().upper()
 if _current_ticker:
     tv_ticker = _current_ticker
-    _tv_exchange_map = {
-        ".MC": "BME:", ".L": "LSE:", ".DE": "XETR:", ".PA": "EURONEXT:", 
-        ".AS": "EURONEXT:", ".MI": "MIL:", ".HK": "HKEX:", ".T": "TSE:",
-        ".KS": "KRX:", ".AX": "ASX:", ".TO": "TSX:", ".SA": "BMFBOVESPA:",
-        ".MX": "BMV:", ".BA": "BCBA:", ".SN": "SNSE:", ".CN": "CSE:",
-        ".SW": "SIX:", ".V": "TSXV:", ".F": "FWB:", ".ST": "OMXSTO:",
-        ".CO": "OMXCPH:", ".HE": "OMXHEL:", ".OL": "OSL:", ".JK": "IDX:",
-        ".JO": "JSE:", ".TA": "TASE:", ".SI": "SGX:", ".LS": "EURONEXT:",
-        ".TW": "TWSE:", ".NS": "NSE:", ".BO": "BSE:"
+    _tv_indices_map = {
+        "^GSPC": "FOREXCOM:SPXUSD",
+        "^IBEX": "BME:IBC",
+        "^GDAXI": "XETR:DAX",
+        "^FCHI": "EURONEXT:PX1",
+        "^FTSE": "FOREXCOM:UKXGBP",
+        "^SSMI": "SIX:SMI",
+        "^AEX": "EURONEXT:AEX",
+        "FTSEMIB.MI": "MIL:FTSEMIB",
+        "^N225": "INDEX:NKY",
+        "^HSI": "INDEX:HSI",
+        "^KS11": "KRX:KOSPI",
+        "^TWII": "TWSE:TAIEX",
+        "^BSESN": "BSE:SENSEX",
+        "^IXIC": "FOREXCOM:NSXUSD",
+        "^DJI": "BLACKBULL:US30"
     }
-    for _suffix, _prefix in _tv_exchange_map.items():
-        if tv_ticker.endswith(_suffix):
-            tv_ticker = _prefix + tv_ticker.replace(_suffix, "")
-            break
+    _tv_specific_map = {
+        # Francia (Euronext -> XETRA)
+        "MC.PA": "XETR:MOH",
+        "OR.PA": "XETR:LOR",
+        "RMS.PA": "XETR:HMI",
+        "KER.PA": "XETR:PRP",
+        "BN.PA": "XETR:BSN",
+        "CDI.PA": "XETR:CHDR",
+        "RI.PA": "XETR:PER",
+        "TTE.PA": "XETR:TTE",
+        "SU.PA": "XETR:SND",
+        "AIR.PA": "XETR:AIR",
+        "CS.PA": "XETR:AXA",
+        "SAN.PA": "XETR:SNW",
+        "BNP.PA": "XETR:BNP",
+        "VIV.PA": "XETR:VVU",
+        "EN.PA": "XETR:BOU",
+        "SGO.PA": "XETR:SGO",
+        "DG.PA": "XETR:SQU",
+        "LR.PA": "XETR:LGR",
+        # Holanda (Euronext -> NASDAQ/NYSE/XETRA)
+        "ASML.AS": "NASDAQ:ASML",
+        "ADYEN.AS": "XETR:1N8",
+        "INGA.AS": "NYSE:ING",
+        "UNA.AS": "NYSE:UL",
+        "HEIA.AS": "XETR:HEIA",
+        "PHIA.AS": "NYSE:PHG",
+        "DSM.AS": "XETR:DSMN",
+        "PRX.AS": "XETR:PRX"
+    }
+    
+    if tv_ticker in _tv_specific_map:
+        tv_ticker = _tv_specific_map[tv_ticker]
+    elif tv_ticker in _tv_indices_map:
+        tv_ticker = _tv_indices_map[tv_ticker]
+    else:
+        _tv_exchange_map = {
+            ".MC": "BME:", ".L": "LSE:", ".DE": "XETR:", ".PA": "EPA:", 
+            ".AS": "EAM:", ".MI": "MIL:", ".HK": "HKEX:", ".T": "TSE:",
+            ".KS": "KRX:", ".AX": "ASX:", ".TO": "TSX:", ".SA": "BMFBOVESPA:",
+            ".MX": "BMV:", ".BA": "BCBA:", ".SN": "SNSE:", ".CN": "CSE:",
+            ".SW": "SIX:", ".V": "TSXV:", ".F": "FWB:", ".ST": "OMXSTO:",
+            ".CO": "OMXCPH:", ".HE": "OMXHEL:", ".OL": "OSL:", ".JK": "IDX:",
+            ".JO": "JSE:", ".TA": "TASE:", ".SI": "SGX:", ".LS": "ELI:",
+            ".TW": "TWSE:", ".NS": "NSE:", ".BO": "BSE:"
+        }
+        for _suffix, _prefix in _tv_exchange_map.items():
+            if tv_ticker.endswith(_suffix):
+                tv_ticker = _prefix + tv_ticker.replace(_suffix, "")
+                break
 
     with st.sidebar:
         st.markdown("<p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5; font-family:Outfit,sans-serif; text-align:center; margin-bottom:5px;'>Analizando</p>", unsafe_allow_html=True)
-        import streamlit.components.v1 as components
-        tv_sidebar = f"""
-        <div style='background:rgba(128,128,128,0.02); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:0px; overflow:hidden; margin-bottom:5px;'>
-            <!-- TradingView Widget BEGIN -->
-            <div class="tradingview-widget-container">
-              <div class="tradingview-widget-container__widget"></div>
-              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
-              {{
-              "symbol": "{tv_ticker}",
-              "width": "100%",
-              "height": 180,
-              "locale": "es",
-              "dateRange": "1M",
-              "colorTheme": "dark",
-              "isTransparent": true,
-              "autosize": false,
-              "largeChartUrl": ""
-              }}
-              </script>
+        
+        _blocked_prefixes = ()
+        if not tv_ticker.startswith(_blocked_prefixes):
+            import streamlit.components.v1 as components
+            tv_sidebar = f"""
+            <div style='background:rgba(128,128,128,0.02); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:0px; overflow:hidden; margin-bottom:5px;'>
+                <!-- TradingView Widget BEGIN -->
+                <div class="tradingview-widget-container">
+                  <div class="tradingview-widget-container__widget"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+                  {{
+                  "symbol": "{tv_ticker}",
+                  "width": "100%",
+                  "height": 180,
+                  "locale": "es",
+                  "dateRange": "1M",
+                  "colorTheme": "dark",
+                  "isTransparent": true,
+                  "autosize": false,
+                  "largeChartUrl": ""
+                  }}
+                  </script>
+                </div>
+                <!-- TradingView Widget END -->
             </div>
-            <!-- TradingView Widget END -->
-        </div>
-        """
-        components.html(tv_sidebar, height=190)
+            """
+            components.html(tv_sidebar, height=190)
+        else:
+            st.markdown(f"<div style='background:rgba(128,128,128,0.02); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:20px; text-align:center; margin-bottom:5px;'><h2 style='margin:0; font-weight:800;'>{_current_ticker}</h2><p style='margin:0; font-size:0.8rem; opacity:0.5;'>Modo Nativo (Restricción TV)</p></div>", unsafe_allow_html=True)
+            
         st.divider()
 
 def set_ticker(t):
@@ -1452,43 +1511,61 @@ with tab_chart:
         # Estilo de gráfico (1 = Velas, 2 = Línea, 3 = Área)
         tv_style = "2" if chart_type == "Línea Minimalista" else "1"
         
-        tv_widget = f"""
-        <!-- TradingView Widget BEGIN -->
-        <div class="tradingview-widget-container" style="height:600px;width:100%;">
-          <div id="tv_chart_{ticker}" style="height:100%;width:100%;"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget(
-          {{
-          "autosize": true,
-          "symbol": "{tv_ticker}",
-          "interval": "{tv_intv}",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "{tv_style}",
-          "locale": "es",
-          "enable_publishing": false,
-          "backgroundColor": "rgba(10, 11, 16, 1)",
-          "gridColor": "rgba(255, 255, 255, 0.04)",
-          "hide_top_toolbar": false,
-          "hide_legend": false,
-          "save_image": false,
-          "container_id": "tv_chart_{ticker}",
-          "allow_symbol_change": true,
-          "toolbar_bg": "rgba(10, 11, 16, 1)",
-          "studies": [
-            "Volume@tv-basicstudies",
-            "STD;RSI"
-          ]
-          }}
-          );
-          </script>
-        </div>
-        <!-- TradingView Widget END -->
-        """
-        
-        st.markdown("<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px;'>Gráfico interactivo oficial (puedes usar los botones de arriba del gráfico para añadir indicadores como RSI, MACD o dibujar líneas).</p>", unsafe_allow_html=True)
-        components.html(tv_widget, height=600)
+        _blocked_prefixes = ()
+        if tv_ticker.startswith(_blocked_prefixes):
+            from plotly.subplots import make_subplots
+            fig_native = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.8, 0.2])
+            
+            if chart_type == "Línea Minimalista":
+                fig_native.add_trace(go.Scatter(x=hist.index, y=hist['Close'], mode='lines', line=dict(color='#d4af37', width=2), name='Precio'), row=1, col=1)
+            else:
+                fig_native.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Precio', increasing_line_color='#00C853', decreasing_line_color='#FF3D00'), row=1, col=1)
+                
+            fig_native.add_trace(go.Bar(x=hist.index, y=hist['Volume'], name='Volumen', marker_color='rgba(212,175,55,0.4)'), row=2, col=1)
+            fig_native.update_layout(height=600, template='plotly_dark', paper_bgcolor='rgba(10,11,16,1)', plot_bgcolor='rgba(10,11,16,1)', margin=dict(l=0,r=0,t=10,b=0), xaxis_rangeslider_visible=False)
+            fig_native.update_xaxes(showgrid=True, gridcolor='rgba(255,255,255,0.04)')
+            fig_native.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.04)')
+            
+            st.markdown(f"<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px;'>Gráfico Nativo A.L.V.A.R.O. (Alternativa de alta precisión activada debido a restricciones de derechos en {tv_ticker.split(':')[0]}).</p>", unsafe_allow_html=True)
+            st.plotly_chart(fig_native, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
+        else:
+            tv_widget = f"""
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container" style="height:600px;width:100%;">
+              <div id="tv_chart_{ticker}" style="height:100%;width:100%;"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+              <script type="text/javascript">
+              new TradingView.widget(
+              {{
+              "autosize": true,
+              "symbol": "{tv_ticker}",
+              "interval": "{tv_intv}",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "{tv_style}",
+              "locale": "es",
+              "enable_publishing": false,
+              "backgroundColor": "rgba(10, 11, 16, 1)",
+              "gridColor": "rgba(255, 255, 255, 0.04)",
+              "hide_top_toolbar": false,
+              "hide_legend": false,
+              "save_image": false,
+              "container_id": "tv_chart_{ticker}",
+              "allow_symbol_change": true,
+              "toolbar_bg": "rgba(10, 11, 16, 1)",
+              "studies": [
+                "Volume@tv-basicstudies",
+                "STD;RSI"
+              ]
+              }}
+              );
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+            """
+            
+            st.markdown("<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px;'>Gráfico interactivo oficial (puedes usar los botones de arriba del gráfico para añadir indicadores como RSI, MACD o dibujar líneas).</p>", unsafe_allow_html=True)
+            components.html(tv_widget, height=600)
 
     # ── Investment Score (Gauge) inside Chart tab ──
     st.divider()
