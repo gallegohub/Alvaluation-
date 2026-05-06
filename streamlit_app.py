@@ -458,7 +458,7 @@ st.sidebar.divider()
 st.sidebar.markdown("### ⚙️ Gráfico")
 chart_period = st.sidebar.selectbox("Periodo", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"], index=8)
 chart_interval = st.sidebar.selectbox("Velas", ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"], index=8)
-chart_type = st.sidebar.radio("Tipo", ["Línea Minimalista", "Velas Japonesas"], index=0)
+chart_type = st.sidebar.radio("Tipo", ["Línea Minimalista", "Velas Japonesas"], index=1)
 
 st.sidebar.divider()
 st.sidebar.markdown("### 🎨 Estilo")
@@ -472,106 +472,40 @@ if "selected_market" not in st.session_state:
     st.session_state.selected_market = None
 
 if not ticker:
-    # ── Ticker Tape Banner ──
-    @st.cache_data(ttl=900, show_spinner=False)
-    def get_ticker_tape():
-        tape_indices = {
-            "S&P 500": "^GSPC", "Nasdaq 100": "^NDX", "Dow Jones": "^DJI",
-            "IBEX 35": "^IBEX", "Euro Stoxx 50": "^STOXX50E", "FTSE 100": "^FTSE",
-            "Nikkei 225": "^N225", "Hang Seng": "^HSI"
-        }
-        tape_items = []
-        try:
-            tickers_list = list(tape_indices.values())
-            h = yf.download(tickers_list, period="5d", progress=False)
-            if 'Close' in h:
-                closes = h['Close']
-                for name, tk in tape_indices.items():
-                    try:
-                        col = closes[tk].dropna() if isinstance(closes, pd.DataFrame) else closes.dropna()
-                        if len(col) >= 2:
-                            pct = (float(col.iloc[-1]) - float(col.iloc[-2])) / float(col.iloc[-2]) * 100
-                            tape_items.append({"name": name, "pct": pct})
-                        else:
-                            tape_items.append({"name": name, "pct": 0.0})
-                    except:
-                        tape_items.append({"name": name, "pct": 0.0})
-        except: pass
-        return tape_items
-
-    tape_data = get_ticker_tape()
-    
-    if tape_data:
-        tape_html_items = ""
-        for i, item in enumerate(tape_data):
-            pct = item["pct"]
-            sign = "+" if pct >= 0 else ""
-            color = "#00C853" if pct >= 0 else "#FF3D00"
-            arrow = "▲" if pct >= 0 else "▼"
-            sep = '<span style="margin: 0 20px; color: rgba(212,175,55,0.3);">◆</span>' if i < len(tape_data) - 1 else ''
-            tape_html_items += f'<span style="white-space: nowrap;"><span style="opacity: 0.55; font-weight: 400;">{item["name"]}</span>&nbsp;&nbsp;<span style="color: {color}; font-weight: 600;">{arrow} {sign}{pct:.2f}%</span></span>{sep}'
-        
-        # Triplicate for seamless loop
-        full_sep = '<span style="margin: 0 20px; color: rgba(212,175,55,0.3);">◆</span>'
-        tape_content = tape_html_items + full_sep + tape_html_items + full_sep + tape_html_items
-        
-        st.markdown(f"""
-        <style>
-            @keyframes ticker-scroll {{
-                0% {{ transform: translate3d(0, 0, 0); }}
-                100% {{ transform: translate3d(-33.333%, 0, 0); }}
-            }}
-            .ticker-tape-wrap {{
-                overflow: hidden;
-                position: relative;
-                background: linear-gradient(180deg, rgba(10,11,16,0.98) 0%, rgba(15,16,22,0.95) 100%);
-                border-top: 1px solid rgba(212, 175, 55, 0.2);
-                border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-                box-shadow: 0 2px 20px rgba(212, 175, 55, 0.06), inset 0 0 30px rgba(0,0,0,0.3);
-                padding: 12px 0;
-                margin-bottom: 20px;
-                border-radius: 8px;
-            }}
-            .ticker-tape-wrap::before,
-            .ticker-tape-wrap::after {{
-                content: '';
-                position: absolute;
-                top: 0;
-                bottom: 0;
-                width: 60px;
-                z-index: 2;
-                pointer-events: none;
-            }}
-            .ticker-tape-wrap::before {{
-                left: 0;
-                background: linear-gradient(to right, rgba(10,11,16,1) 0%, transparent 100%);
-            }}
-            .ticker-tape-wrap::after {{
-                right: 0;
-                background: linear-gradient(to left, rgba(10,11,16,1) 0%, transparent 100%);
-            }}
-            .ticker-tape-inner {{
-                display: flex;
-                align-items: center;
-                width: max-content;
-                animation: ticker-scroll 45s linear infinite;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 0.82rem;
-                letter-spacing: 0.3px;
-                will-change: transform;
-                backface-visibility: hidden;
-                -webkit-font-smoothing: antialiased;
-            }}
-            .ticker-tape-wrap:hover .ticker-tape-inner {{
-                animation-play-state: paused;
-            }}
-        </style>
-        <div class="ticker-tape-wrap">
-            <div class="ticker-tape-inner">
-                {tape_content}
-            </div>
+    # ── Ticker Tape Banner (TradingView Native Widget) ──
+    import streamlit.components.v1 as components
+    tv_tape = """
+    <div style="border-top: 1px solid rgba(212,175,55,0.2); border-bottom: 1px solid rgba(212,175,55,0.2); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 20px rgba(212,175,55,0.06);">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+          {
+          "symbols": [
+            {"proName": "FOREXCOM:SPXUSD", "title": "S&P 500"},
+            {"proName": "FOREXCOM:NSXUSD", "title": "Nasdaq 100"},
+            {"proName": "BLACKBULL:US30", "title": "Dow Jones"},
+            {"proName": "BME:IBC", "title": "IBEX 35"},
+            {"proName": "STOXX:SX5E", "title": "Euro Stoxx 50"},
+            {"proName": "FOREXCOM:UKXGBP", "title": "FTSE 100"},
+            {"proName": "INDEX:NKY", "title": "Nikkei 225"},
+            {"proName": "INDEX:HSI", "title": "Hang Seng"},
+            {"proName": "FX:EURUSD", "title": "EUR/USD"},
+            {"proName": "BITSTAMP:BTCUSD", "title": "Bitcoin"},
+            {"proName": "COMEX:GC1!", "title": "Oro"}
+          ],
+          "showSymbolLogo": true,
+          "isTransparent": true,
+          "displayMode": "adaptive",
+          "colorTheme": "dark",
+          "locale": "es"
+          }
+          </script>
         </div>
-        """, unsafe_allow_html=True)
+        <!-- TradingView Widget END -->
+    </div>
+    """
+    components.html(tv_tape, height=78)
     
     st.markdown("""
         <div style="text-align: center; margin-top: 2vh; margin-bottom: 20px;">
@@ -760,6 +694,40 @@ if not ticker:
                 cols = st.columns(4)
                 for i, (t, name) in enumerate(ticks.items()):
                     cols[i % 4].button(t, key=f"btn_main_{sel}_{t}", help=name, use_container_width=True, on_click=set_ticker, args=(t,))
+    
+    # ── Stock Heatmap (TradingView) ──
+    st.markdown("---")
+    with st.expander("🔥 Mapa de Calor del S&P 500", expanded=False):
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-5px;'>Visualización en tiempo real del rendimiento del mercado estadounidense, agrupado por sector y ponderado por capitalización.</p>", unsafe_allow_html=True)
+        tv_heatmap = """
+        <div style="border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 30px rgba(212,175,55,0.08);">
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container" style="width: 100%; height: 520px;">
+              <div class="tradingview-widget-container__widget" style="width: 100%; height: 100%;"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
+              {
+              "exchanges": [],
+              "dataSource": "SPX500",
+              "grouping": "sector",
+              "blockSize": "market_cap_basic",
+              "blockColor": "change",
+              "locale": "es",
+              "symbolUrl": "",
+              "colorTheme": "dark",
+              "hasTopBar": true,
+              "isDataSet498Enabled": false,
+              "isZoomEnabled": true,
+              "hasSymbolTooltip": true,
+              "isMonoSize": false,
+              "width": "100%",
+              "height": 520
+              }
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+        </div>
+        """
+        components.html(tv_heatmap, height=540)
                     
     st.stop()
 
@@ -1140,170 +1108,55 @@ with tab_compare:
 # ── Tab 1: Chart ──
 with tab_chart:
     if not hist.empty:
-        hist['SMA_50'] = hist['Close'].rolling(window=50).mean()
-        hist['SMA_200'] = hist['Close'].rolling(window=200).mean()
+        import streamlit.components.v1 as components
         
-        delta = hist['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        hist['RSI'] = 100 - (100 / (1 + rs))
+        # Mapeo de intervalos de Streamlit a TradingView
+        tv_interval_map = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "1d": "D", "1wk": "W", "1mo": "M"}
+        tv_intv = tv_interval_map.get(chart_interval, "D")
         
-        exp1 = hist['Close'].ewm(span=12, adjust=False).mean()
-        exp2 = hist['Close'].ewm(span=26, adjust=False).mean()
-        hist['MACD'] = exp1 - exp2
-        hist['Signal'] = hist['MACD'].ewm(span=9, adjust=False).mean()
-        hist['MACD_Hist'] = hist['MACD'] - hist['Signal']
-
-        body = abs(hist['Close'] - hist['Open'])
-        lower_shadow = np.minimum(hist['Close'], hist['Open']) - hist['Low']
-        upper_shadow = hist['High'] - np.maximum(hist['Close'], hist['Open'])
-        hist['is_hammer'] = (lower_shadow > 2 * body) & (upper_shadow < body) & (body > 0)
+        # Estilo de gráfico (1 = Velas, 2 = Línea, 3 = Área)
+        tv_style = "2" if chart_type == "Línea Minimalista" else "1"
         
-        prev_close = hist['Close'].shift(1)
-        prev_open = hist['Open'].shift(1)
-        hist['bullish_eng'] = (prev_close < prev_open) & (hist['Close'] > hist['Open']) & (hist['Close'] > prev_open) & (hist['Open'] <= prev_close)
-        hist['bearish_eng'] = (prev_close > prev_open) & (hist['Close'] < hist['Open']) & (hist['Open'] >= prev_close) & (hist['Close'] < prev_open)
-
-        with st.expander("⚙️ Opciones del Gráfico", expanded=False):
-            c_opt1, c_opt2, c_opt3, c_opt4 = st.columns(4)
-            show_sma = c_opt1.checkbox("Medias Móviles (SMA)", value=False)
-            show_patterns = c_opt2.checkbox("Patrones de Velas", value=False)
-            show_vol = c_opt3.checkbox("Volumen", value=False)
-            show_osc = c_opt4.checkbox("RSI & MACD", value=False)
-
-        rows = 1
-        row_heights = [0.5]
-        titles = [""]
+        # Limpiar el ticker si lleva sufijos raros para que TV lo entienda mejor, aunque suele ser inteligente
+        tv_ticker = ticker
         
-        if show_vol:
-            rows += 1
-            row_heights.append(0.2)
-            titles.append("Volumen")
-        if show_osc:
-            rows += 1
-            row_heights.append(0.3)
-            titles.append("RSI (14) & MACD")
-            
-        fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
-                            vertical_spacing=0.03, subplot_titles=titles if len(titles) > 1 else None,
-                            row_width=row_heights[::-1])
-
-        # ── Eje X numérico con etiquetas de fecha (ultra-rápido, sin saltos) ──
-        # Usamos índices enteros (0,1,2,...) como eje X real → Plotly renderiza sin gaps y sin lag.
-        # Las etiquetas de fecha se muestran sólo en los ticks seleccionados vía tickvals/ticktext.
-        n_bars = len(hist)
-        x_idx = np.arange(n_bars)
+        tv_widget = f"""
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="height:600px;width:100%;">
+          <div id="tv_chart_{ticker}" style="height:100%;width:100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.widget(
+          {{
+          "autosize": true,
+          "symbol": "{tv_ticker}",
+          "interval": "{tv_intv}",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "{tv_style}",
+          "locale": "es",
+          "enable_publishing": false,
+          "backgroundColor": "rgba(10, 11, 16, 1)",
+          "gridColor": "rgba(255, 255, 255, 0.04)",
+          "hide_top_toolbar": false,
+          "hide_legend": false,
+          "save_image": false,
+          "container_id": "tv_chart_{ticker}",
+          "allow_symbol_change": true,
+          "toolbar_bg": "rgba(10, 11, 16, 1)",
+          "studies": [
+            "Volume@tv-basicstudies",
+            "STD;RSI"
+          ]
+          }}
+          );
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+        """
         
-        is_intraday = (hist.index[1] - hist.index[0]).total_seconds() < 86400 if n_bars > 1 else False
-        date_fmt = '%d %b %H:%M' if is_intraday else '%d %b %Y'
-        all_labels = hist.index.strftime(date_fmt)
-        
-        # Seleccionar ~12 etiquetas equiespaciadas para el eje
-        n_ticks = min(12, n_bars)
-        tick_step = max(1, n_bars // n_ticks)
-        tick_positions = list(range(0, n_bars, tick_step))
-        tick_labels = [all_labels[i] for i in tick_positions]
-        
-        # Colores TradingView
-        tv_up = '#26a69a'    # Verde TradingView
-        tv_down = '#ef5350'  # Rojo TradingView
-        
-        # Color de tendencia principal (para línea)
-        overall_trend_color = tv_up if hist['Close'].iloc[-1] >= hist['Close'].iloc[0] else tv_down
-        
-        if chart_type == "Línea Minimalista":
-            fig.add_trace(go.Scatter(
-                x=x_idx, y=hist['Close'].values,
-                line=dict(color=overall_trend_color, width=2),
-                name='Precio', hovertemplate='%{customdata}<br>Precio: %{y:,.2f}<extra></extra>',
-                customdata=all_labels
-            ), row=1, col=1)
-        else:
-            fig.add_trace(go.Candlestick(
-                x=x_idx,
-                open=hist['Open'].values, high=hist['High'].values,
-                low=hist['Low'].values, close=hist['Close'].values,
-                increasing_line_color=tv_up, decreasing_line_color=tv_down,
-                increasing_fillcolor=tv_up, decreasing_fillcolor=tv_down,
-                line=dict(width=1),
-                name='Precio'
-            ), row=1, col=1)
-        
-        if show_sma:
-            fig.add_trace(go.Scatter(x=x_idx, y=hist['SMA_50'].values, line=dict(color='#ff9800', width=1.5, dash='solid'), name='SMA 50', hoverinfo='skip'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=x_idx, y=hist['SMA_200'].values, line=dict(color='#42a5f5', width=1.5, dash='solid'), name='SMA 200', hoverinfo='skip'), row=1, col=1)
-        
-        if show_patterns:
-            bull_idx = np.where(hist['bullish_eng'].values)[0]
-            if len(bull_idx) > 0:
-                bull_prices = hist['Low'].values[bull_idx] * 0.98
-                fig.add_trace(go.Scatter(x=bull_idx, y=bull_prices, mode='markers', marker=dict(symbol='triangle-up', size=12, color=tv_up), name='Envolvente Alcista', hoverinfo='name'), row=1, col=1)
-
-            bear_idx = np.where(hist['bearish_eng'].values)[0]
-            if len(bear_idx) > 0:
-                bear_prices = hist['High'].values[bear_idx] * 1.02
-                fig.add_trace(go.Scatter(x=bear_idx, y=bear_prices, mode='markers', marker=dict(symbol='triangle-down', size=12, color=tv_down), name='Envolvente Bajista', hoverinfo='name'), row=1, col=1)
-
-            hammer_idx = np.where(hist['is_hammer'].values)[0]
-            if len(hammer_idx) > 0:
-                hammer_prices = hist['Low'].values[hammer_idx] * 0.96
-                fig.add_trace(go.Scatter(x=hammer_idx, y=hammer_prices, mode='markers', marker=dict(symbol='star', size=10, color='#fdd835'), name='Martillo', hoverinfo='name'), row=1, col=1)
-        
-        curr_row = 1
-        
-        if show_vol:
-            curr_row += 1
-            colors_vol = np.where(hist['Close'].values >= hist['Open'].values, tv_up, tv_down)
-            fig.add_trace(go.Bar(x=x_idx, y=hist['Volume'].values, name='Volumen', marker_color=colors_vol, opacity=0.5), row=curr_row, col=1)
-
-        if show_osc:
-            curr_row += 1
-            fig.add_trace(go.Scatter(x=x_idx, y=hist['RSI'].values, name='RSI', line=dict(color='#ab47bc', width=1.5)), row=curr_row, col=1)
-            fig.add_hline(y=70, line_dash="dot", row=curr_row, col=1, line_color=tv_down, opacity=0.4)
-            fig.add_hline(y=30, line_dash="dot", row=curr_row, col=1, line_color=tv_up, opacity=0.4)
-            
-            colors_macd = np.where(hist['MACD_Hist'].values >= 0, tv_up, tv_down)
-            fig.add_trace(go.Bar(x=x_idx, y=hist['MACD_Hist'].values, name='MACD Hist', marker_color=colors_macd, opacity=0.5), row=curr_row, col=1)
-            fig.add_trace(go.Scatter(x=x_idx, y=hist['MACD'].values, line=dict(color='#42a5f5', width=1.5), name='MACD'), row=curr_row, col=1)
-            fig.add_trace(go.Scatter(x=x_idx, y=hist['Signal'].values, line=dict(color='#ff9800', width=1.5), name='Signal'), row=curr_row, col=1)
-
-        fig.update_layout(
-            height=450 + (130 if show_vol else 0) + (200 if show_osc else 0),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(10,11,16,1)",
-            margin=dict(l=0, r=50, t=8, b=0),
-            font=dict(family="Inter", size=11, color="rgba(255,255,255,0.55)"),
-            dragmode='pan',
-            showlegend=False,
-            hovermode='x unified',
-            hoverlabel=dict(
-                bgcolor="rgba(30,30,30,0.95)",
-                font_size=12,
-                font_family="JetBrains Mono",
-                bordercolor="rgba(255,255,255,0.15)"
-            )
-        )
-        
-        # Ejes configurados para velocidad y estética TradingView
-        fig.update_xaxes(
-            tickvals=tick_positions, ticktext=tick_labels,
-            showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-            zeroline=False,
-            showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)",
-            rangeslider_visible=False
-        )
-        fig.update_yaxes(
-            showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-            zeroline=False, side="right",
-            showspikes=True, spikemode="across", spikethickness=1, spikedash="dot", spikecolor="rgba(255,255,255,0.3)"
-        )
-        
-        st.plotly_chart(fig, use_container_width=True, config={
-            'scrollZoom': True, 
-            'displayModeBar': True,
-            'modeBarButtonsToRemove': ['lasso2d', 'select2d', 'autoScale2d'],
-            'displaylogo': False
-        })
+        st.markdown("<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px;'>Gráfico interactivo oficial (puedes usar los botones de arriba del gráfico para añadir indicadores como RSI, MACD o dibujar líneas).</p>", unsafe_allow_html=True)
+        components.html(tv_widget, height=600)
 
     # ── Investment Score (Gauge) inside Chart tab ──
     st.divider()
@@ -1341,6 +1194,61 @@ with tab_chart:
 # ── Tab 2: Technical Analysis ──
 with tab_ta:
     if not hist.empty:
+        st.markdown("### ⏱️ Reloj de Análisis Técnico")
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Algoritmo en tiempo real de TradingView que resume decenas de medias móviles y osciladores.</p>", unsafe_allow_html=True)
+        
+        tv_gauge = f"""
+        <div style="background: rgba(128,128,128,0.02); border: 1px solid rgba(212,175,55,0.3); border-radius: 12px; padding: 15px; width: 100%; box-sizing: border-box;">
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container" style="width: 100%; height: 380px;">
+              <div class="tradingview-widget-container__widget" style="width: 100%; height: 100%;"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+              {{
+              "interval": "1D",
+              "width": "100%",
+              "isTransparent": true,
+              "height": 380,
+              "symbol": "{ticker}",
+              "showIntervalTabs": true,
+              "displayMode": "single",
+              "locale": "es",
+              "colorTheme": "dark"
+              }}
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+        </div>
+        """
+        import streamlit.components.v1 as components
+        components.html(tv_gauge, height=420)
+        
+        st.divider()
+        # Calcular indicadores técnicos necesarios para este panel
+        hist['SMA_50'] = hist['Close'].rolling(window=50).mean()
+        hist['SMA_200'] = hist['Close'].rolling(window=200).mean()
+        
+        delta = hist['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        hist['RSI'] = 100 - (100 / (1 + rs))
+        
+        exp1 = hist['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = hist['Close'].ewm(span=26, adjust=False).mean()
+        hist['MACD'] = exp1 - exp2
+        hist['Signal'] = hist['MACD'].ewm(span=9, adjust=False).mean()
+        hist['MACD_Hist'] = hist['MACD'] - hist['Signal']
+
+        body = abs(hist['Close'] - hist['Open'])
+        lower_shadow = np.minimum(hist['Close'], hist['Open']) - hist['Low']
+        upper_shadow = hist['High'] - np.maximum(hist['Close'], hist['Open'])
+        hist['is_hammer'] = (lower_shadow > 2 * body) & (upper_shadow < body) & (body > 0)
+        
+        prev_close = hist['Close'].shift(1)
+        prev_open = hist['Open'].shift(1)
+        hist['bullish_eng'] = (prev_close < prev_open) & (hist['Close'] > hist['Open']) & (hist['Close'] > prev_open) & (hist['Open'] <= prev_close)
+        hist['bearish_eng'] = (prev_close > prev_open) & (hist['Close'] < hist['Open']) & (hist['Open'] >= prev_close) & (hist['Close'] < prev_open)
+
         st.markdown("### Resumen Técnico (Última Sesión)")
         last_row = hist.iloc[-1]
         
@@ -1384,8 +1292,75 @@ with tab_ta:
         col3.metric("Patrón (Últimas 5 velas)", pattern_status, help=help_texts.get(pat_base, help_texts["Ninguno"]))
         
         st.divider()
-        st.markdown("### 🕵️‍♂️ Flujo Institucional (Mercado de Opciones)")
-        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Análisis del ratio Put/Call para detectar dónde están apostando los 'Tiburones' de Wall Street.</p>", unsafe_allow_html=True)
+        
+        # ── Fear & Greed Index ──
+        st.markdown("### Fear & Greed Index (CNN)")
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Termómetro del sentimiento global del mercado. Mide si los inversores están en modo pánico o euforia.</p>", unsafe_allow_html=True)
+        
+        try:
+            import requests as _req
+            _fg_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://edition.cnn.com/markets/fear-and-greed",
+                "Origin": "https://edition.cnn.com"
+            }
+            _fg_resp = _req.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", 
+                               headers=_fg_headers, timeout=8)
+            _fg_data = None
+            if _fg_resp.status_code == 200:
+                _fg_data = _fg_resp.json()
+            
+            if _fg_data and "fear_and_greed" in _fg_data:
+                _fg_score = _fg_data["fear_and_greed"].get("score", 50)
+                _fg_label = _fg_data["fear_and_greed"].get("rating", "Neutral")
+                _fg_prev_data = _fg_data.get("fear_and_greed_historical", {}).get("previousClose", {})
+                _fg_prev = _fg_prev_data.get("score", _fg_score) if isinstance(_fg_prev_data, dict) else _fg_score
+                
+                # Color based on score
+                if _fg_score <= 25:
+                    _fg_color = "#FF3D00"
+                elif _fg_score <= 45:
+                    _fg_color = "#FF6D00"
+                elif _fg_score <= 55:
+                    _fg_color = "#d4af37"
+                elif _fg_score <= 75:
+                    _fg_color = "#76FF03"
+                else:
+                    _fg_color = "#00C853"
+                
+                _fg_delta = _fg_score - _fg_prev
+                _fg_sign = "+" if _fg_delta >= 0 else ""
+                _fg_delta_col = "#00C853" if _fg_delta >= 0 else "#FF3D00"
+                
+                st.markdown(f"""
+                <div style='display: flex; align-items: center; justify-content: center; gap: 40px; background: rgba(128,128,128,0.03); border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; padding: 25px; margin-bottom: 15px;' class='glow-hover'>
+                    <div style='text-align: center;'>
+                        <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5;'>Market Sentiment</p>
+                        <p style='margin:5px 0 0 0; font-family:JetBrains Mono; font-size:4rem; font-weight:800; color:{_fg_color}; line-height:1; text-shadow: 0 0 30px {_fg_color}40;'>{_fg_score:.0f}</p>
+                        <p style='margin:4px 0 0 0; font-size:1rem; font-weight:700; color:{_fg_color};'>{_fg_label}</p>
+                        <p style='margin:6px 0 0 0; font-size:0.8rem; color:{_fg_delta_col}; opacity:0.8;'>vs yesterday: {_fg_sign}{_fg_delta:.1f} pts</p>
+                    </div>
+                    <div style='text-align: left; max-width: 280px;'>
+                        <div style='margin-bottom: 8px;'>
+                            <div style='display:flex; justify-content:space-between; font-size:0.7rem; opacity:0.5; margin-bottom:3px;'><span>Extreme Fear</span><span>Extreme Greed</span></div>
+                            <div style='width:100%; height:8px; background: linear-gradient(to right, #FF3D00, #FF6D00, #d4af37, #76FF03, #00C853); border-radius:4px; position:relative;'>
+                                <div style='position:absolute; top:-4px; left:{_fg_score}%; transform:translateX(-50%); width:4px; height:16px; background:white; border-radius:2px; box-shadow: 0 0 8px rgba(255,255,255,0.8);'></div>
+                            </div>
+                        </div>
+                        <p style='font-size:0.75rem; opacity:0.5; margin:10px 0 0 0; line-height:1.5;'>0-25: Extreme Fear (buying opportunity)<br>75-100: Extreme Greed (correction risk)</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Fear & Greed Index no disponible en este momento.")
+        except Exception as e:
+            st.info("Fear & Greed Index no disponible temporalmente.")
+        
+        st.divider()
+        st.markdown("### 🕵️‍♂️ Radar Institucional de Opciones (Dark Pools)")
+        st.markdown("<p style='font-size:0.85rem; opacity:0.7; margin-top:-10px;'>Análisis del ratio Put/Call para detectar dónde están apostando los grandes fondos de Wall Street.</p>", unsafe_allow_html=True)
         
         try:
             tk_obj = yf.Ticker(ticker)
@@ -1399,25 +1374,33 @@ with tab_ta:
                 if vol_calls > 0 or vol_puts > 0:
                     pc_ratio = vol_puts / vol_calls if vol_calls > 0 else 99
                     
-                    cc1, cc2, cc3 = st.columns(3)
-                    cc1.metric(f"CALLS (Apuestas Alcistas)", f"{int(vol_calls):,}")
-                    cc2.metric(f"PUTS (Apuestas Bajistas)", f"{int(vol_puts):,}")
-                    
                     if pc_ratio > 1.2:
-                        sent = "Extremo Pánico (Bajista)"
-                        col_s = color_down
+                        sent, sent_col, sent_icon = "Miedo Extremo (Bajista)", color_down, "⚠️"
                     elif pc_ratio < 0.7:
-                        sent = "Extrema Euforia (Alcista)"
-                        col_s = color_up
+                        sent, sent_col, sent_icon = "Euforia (Alcista)", color_up, "🚀"
                     else:
-                        sent = "Neutral"
-                        col_s = "gray"
+                        sent, sent_col, sent_icon = "Neutral", "#d4af37", "⚖️"
                         
-                    cc3.metric("Ratio Put/Call", f"{pc_ratio:.2f}", help=">1.2 indica miedo extremo (Puts). <0.7 indica euforia (Calls).")
-                    st.markdown(f"<div class='glow-hover' style='border: 1px solid {col_s}; padding: 10px; border-radius: 8px; text-align: center; color: {col_s}; font-weight: 600;'>Veredicto Institucional a corto plazo: {sent} (Vencimiento: {exp_date})</div>", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style='display: flex; justify-content: space-between; align-items: center; background: rgba(128,128,128,0.03); border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; padding: 20px; margin-bottom: 20px;' class='glow-hover'>
+                        <div style='text-align: center; flex: 1;'>
+                            <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; color:#00C853;'>Volumen CALLS</p>
+                            <p style='margin:0; font-family:JetBrains Mono; font-size:1.8rem; font-weight:300;'>{int(vol_calls):,}</p>
+                        </div>
+                        <div style='text-align: center; flex: 1; border-left: 1px solid rgba(128,128,128,0.2); border-right: 1px solid rgba(128,128,128,0.2);'>
+                            <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; color:{sent_col};'>Ratio Put/Call</p>
+                            <p style='margin:0; font-family:JetBrains Mono; font-size:2.2rem; font-weight:800; color:{sent_col};'>{pc_ratio:.2f}</p>
+                            <span style='font-size:0.8rem; font-weight:600; color:{sent_col};'>{sent_icon} {sent}</span>
+                        </div>
+                        <div style='text-align: center; flex: 1;'>
+                            <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; opacity:0.6; color:#FF3D00;'>Volumen PUTS</p>
+                            <p style='margin:0; font-family:JetBrains Mono; font-size:1.8rem; font-weight:300;'>{int(vol_puts):,}</p>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    st.markdown("#### 🗺️ Mapa de Calor Institucional (Open Interest)")
-                    st.markdown("<p style='font-size:0.8rem; opacity:0.7; margin-top:-10px;'>¿Dónde están posicionadas las grandes carteras institucionales? Muestra las apuestas vivas por precio (Strike).</p>", unsafe_allow_html=True)
+                    st.markdown(f"#### 🗺️ Mapa de Calor Institucional (Vencimiento: {exp_date})")
+                    st.markdown("<p style='font-size:0.8rem; opacity:0.7; margin-top:-10px;'>Concentración de contratos abiertos (Open Interest) por nivel de precio (Strike).</p>", unsafe_allow_html=True)
                     
                     try:
                         calls_df = chain.calls[['strike', 'openInterest']].copy()
@@ -1429,8 +1412,7 @@ with tab_ta:
                         opts_df = pd.concat([calls_df, puts_df]).dropna()
                         
                         if curr_p > 0 and not opts_df.empty:
-                            # Filtrar solo strikes relevantes (+/- 25% del precio actual)
-                            opts_df = opts_df[(opts_df['strike'] >= curr_p * 0.75) & (opts_df['strike'] <= curr_p * 1.25)]
+                            opts_df = opts_df[(opts_df['strike'] >= curr_p * 0.80) & (opts_df['strike'] <= curr_p * 1.20)]
                             
                         if not opts_df.empty:
                             pivot_opts = opts_df.pivot(index='Tipo', columns='strike', values='openInterest').fillna(0)
@@ -1439,15 +1421,19 @@ with tab_ta:
                                 z=pivot_opts.values,
                                 x=pivot_opts.columns,
                                 y=pivot_opts.index,
-                                colorscale='Aggrnyl',  # Estilo financiero/terminal
+                                colorscale=[
+                                    [0.0, "rgba(10,11,16,1)"], 
+                                    [0.5, "rgba(212,175,55,0.4)"], 
+                                    [1.0, "rgba(212,175,55,1)"]
+                                ],
                                 hovertemplate='Strike: %{x}<br>Tipo: %{y}<br>Contratos Abiertos: %{z}<extra></extra>'
                             ))
                             fig_hm.update_layout(
-                                height=200, margin=dict(l=0, r=0, t=20, b=0),
+                                height=220, margin=dict(l=0, r=0, t=10, b=0),
                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                font=dict(family="Inter")
+                                font=dict(family="Inter", color="rgba(255,255,255,0.7)")
                             )
-                            fig_hm.add_vline(x=curr_p, line_dash="dash", line_color="white", annotation_text="Precio Actual", annotation_font=dict(color="white"))
+                            fig_hm.add_vline(x=curr_p, line_dash="dash", line_color="#00C853", annotation_text="Precio Actual", annotation_font=dict(color="#00C853", size=10))
                             st.plotly_chart(fig_hm, use_container_width=True, config={'displayModeBar': False})
                     except Exception as e:
                         st.info("No se pudo generar el heatmap de opciones para esta fecha.")
@@ -1536,6 +1522,30 @@ with tab_fin:
 with tab_statements:
     st.markdown("### 🗃️ Análisis Fundamental Profundo")
     st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Radiografía contable completa: KPIs, visualizaciones y estados financieros íntegros.</p>", unsafe_allow_html=True)
+
+    tv_profile = f"""
+    <div style="background: rgba(128,128,128,0.02); border: 1px solid rgba(212,175,55,0.3); border-radius: 12px; padding: 0px; width: 100%; box-sizing: border-box; overflow: hidden;">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="width: 100%; height: 350px;">
+          <div class="tradingview-widget-container__widget" style="width: 100%; height: 100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-profile.js" async>
+          {{
+          "width": "100%",
+          "height": 350,
+          "colorTheme": "dark",
+          "isTransparent": true,
+          "symbol": "{ticker}",
+          "locale": "es"
+          }}
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+    </div>
+    """
+    import streamlit.components.v1 as components
+    components.html(tv_profile, height=360)
+    
+    st.divider()
 
     # ── Helper: safe extraction with YoY delta ──
     def _safe_get(df, key, col_idx=0):
@@ -3037,27 +3047,30 @@ with tab_port:
 
 # ── Tab 9: Noticias ──
 with tab_news:
-    st.markdown("### 📰 Flujo de Noticias")
+    st.markdown("### 📰 Flujo de Noticias en Tiempo Real")
     st.markdown("<p style='font-size:0.9rem; opacity:0.7; margin-top:-10px;'>Últimas noticias publicadas que pueden afectar a la cotización a corto plazo.</p>", unsafe_allow_html=True)
     
     if not news_data:
-        st.info("No se encontraron noticias recientes para este activo en Yahoo Finance.")
+        st.info("No se encontraron noticias recientes para este activo.")
     else:
         st.markdown("<br>", unsafe_allow_html=True)
         for article in news_data:
             title = article.get("title", "Sin Título")
             publisher = article.get("publisher", "Fuente Desconocida")
             pub_time = article.get("time", 0)
+            link = article.get("link", "#")
                 
             dt_str = datetime.fromtimestamp(pub_time).strftime('%d %b %Y, %H:%M') if pub_time else "Reciente"
             
             st.markdown(f"""
-            <div class="glow-hover" style="background: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.2); border-left: 4px solid #d4af37; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="margin: 0 0 10px 0; font-size: 1.15rem; font-weight: 600;">{title}</h4>
-                <div style="font-size: 0.85rem; opacity: 0.7;">
-                    <span>🏢 <b>{publisher}</b> · 🕒 {dt_str}</span>
+            <a href="{link}" target="_blank" style="text-decoration: none; color: inherit;">
+                <div class="glow-hover" style="background: rgba(128,128,128,0.02); border: 1px solid rgba(212,175,55,0.2); border-left: 4px solid #d4af37; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 1.15rem; font-weight: 600; color: #fff;">{title}</h4>
+                    <div style="font-size: 0.85rem; opacity: 0.7; color: #fff;">
+                        <span>🏢 <b>{publisher}</b> · 🕒 {dt_str}</span>
+                    </div>
                 </div>
-            </div>
+            </a>
             """, unsafe_allow_html=True)
 
 # ── Tab 10: Institucional / Insiders ──
