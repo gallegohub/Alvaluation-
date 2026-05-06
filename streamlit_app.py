@@ -41,8 +41,264 @@ st.markdown("""
     .big-price { font-family: 'JetBrains Mono', monospace; font-size: 5rem; font-weight: 300; line-height: 1; letter-spacing: -3px; margin: 0; padding: 0; display: inline-block; animation: price-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     .big-price-sub { font-size: 1.5rem; font-weight: 600; padding-left: 10px; display: inline-block; animation: price-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
     .header-ticker { font-size: 1.5rem; font-weight: 600; opacity: 0.5; }
-    .stTabs [data-baseweb="tab-list"] { gap: 12px; overflow-x: auto; padding-bottom: 5px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: nowrap; font-weight: 600; padding: 0 10px; font-size: 0.9rem; }
+    
+    /* ── 1. Starlight Background (Rolls Royce Style) ── */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; width: 200%; height: 200%;
+        background-image:
+            radial-gradient(1px 1px at 2% 5%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 7% 18%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 12% 32%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 4% 48%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 9% 62%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 14% 78%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 6% 91%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 18% 8%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 22% 25%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 16% 42%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 24% 55%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 19% 72%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 26% 88%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 32% 12%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 28% 35%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 35% 52%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 30% 68%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 38% 82%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 33% 95%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 42% 5%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 45% 22%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 40% 38%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 48% 55%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 43% 72%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 50% 88%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 55% 8%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 52% 28%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 58% 45%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 54% 62%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 60% 78%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 56% 92%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 65% 15%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 62% 32%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 68% 48%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 64% 65%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 70% 82%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 66% 95%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 75% 5%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 72% 22%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 78% 38%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 74% 55%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 80% 72%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 76% 88%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 85% 12%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 82% 28%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 88% 45%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 84% 62%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 90% 78%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 86% 92%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 95% 8%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 92% 35%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 98% 52%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 94% 68%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 97% 85%, rgba(212,175,55,0.35) 50%, transparent 100%);
+        pointer-events: none;
+        z-index: 0;
+        animation: starfield-drift 120s linear infinite, starfield-twinkle 8s ease-in-out infinite alternate;
+    }
+    .stApp::after {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; width: 200%; height: 200%;
+        background-image:
+            radial-gradient(1.2px 1.2px at 3% 3%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 8% 15%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 5% 28%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 11% 42%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 3% 58%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 10% 75%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 7% 88%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 17% 10%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 21% 30%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 15% 50%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 23% 65%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 19% 82%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 27% 95%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 31% 8%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 34% 22%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 29% 40%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 37% 58%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 33% 75%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 41% 15%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 44% 35%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 39% 52%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 47% 68%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 43% 85%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 51% 5%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 53% 25%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 49% 45%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 57% 62%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 55% 80%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 61% 12%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 63% 32%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 59% 48%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 67% 65%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 64% 82%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 71% 18%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 73% 38%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 69% 55%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 77% 72%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 74% 90%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 81% 8%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1px 1px at 83% 25%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 79% 42%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1px 1px at 87% 58%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 84% 75%, rgba(212,175,55,0.45) 50%, transparent 100%),
+            radial-gradient(1px 1px at 91% 15%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.3px 1.3px at 93% 35%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 89% 52%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 96% 68%, rgba(212,175,55,0.5) 50%, transparent 100%),
+            radial-gradient(1px 1px at 94% 85%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(1.2px 1.2px at 99% 48%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(1px 1px at 97% 92%, rgba(212,175,55,0.45) 50%, transparent 100%);
+        pointer-events: none;
+        z-index: 0;
+        animation: starfield-drift2 160s linear infinite, starfield-twinkle 12s ease-in-out infinite alternate-reverse;
+    }
+    /* ── Layer 3: Ultra-dense micro-stars ── */
+    .stApp .starfield-layer3 {
+        position: fixed;
+        top: 0; left: 0; width: 200%; height: 200%;
+        background-image:
+            radial-gradient(0.8px 0.8px at 1% 3%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 3% 11%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 5% 22%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 2% 35%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 7% 47%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 4% 58%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 9% 71%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 6% 83%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 1% 94%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 11% 7%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 13% 19%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 16% 33%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 12% 46%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 18% 59%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 14% 73%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 20% 86%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 17% 97%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 23% 4%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 25% 16%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 28% 29%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 22% 43%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 31% 56%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 27% 69%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 34% 81%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 29% 93%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 36% 9%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 38% 21%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 41% 37%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 35% 51%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 44% 64%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 40% 77%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 46% 89%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 49% 2%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 51% 14%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 53% 27%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 56% 41%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 48% 54%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 58% 67%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 55% 79%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 61% 91%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 63% 6%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 66% 18%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 60% 31%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 69% 44%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 65% 57%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 72% 71%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 68% 84%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 75% 96%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 77% 11%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 79% 24%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 76% 38%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 82% 52%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 78% 66%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 85% 78%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 81% 91%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 88% 3%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 90% 17%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 87% 33%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 93% 47%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 89% 61%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 95% 74%, rgba(212,175,55,0.35) 50%, transparent 100%),
+            radial-gradient(0.6px 0.6px at 92% 87%, rgba(212,175,55,0.25) 50%, transparent 100%),
+            radial-gradient(0.9px 0.9px at 98% 9%, rgba(212,175,55,0.4) 50%, transparent 100%),
+            radial-gradient(0.7px 0.7px at 96% 42%, rgba(212,175,55,0.3) 50%, transparent 100%),
+            radial-gradient(0.8px 0.8px at 99% 76%, rgba(212,175,55,0.35) 50%, transparent 100%);
+        pointer-events: none;
+        z-index: 0;
+        animation: starfield-drift3 200s linear infinite, starfield-twinkle 6s ease-in-out infinite alternate;
+    }
+    @keyframes starfield-drift {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-50%, -50%); }
+    }
+    @keyframes starfield-drift2 {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-30%, -50%); }
+    }
+    @keyframes starfield-drift3 {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-40%, -35%); }
+    }
+    @keyframes starfield-twinkle {
+        0% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+        100% { opacity: 0.5; }
+    }
+    
+    /* ── 3. Golden Dividers ── */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.4) 20%, rgba(212,175,55,0.6) 50%, rgba(212,175,55,0.4) 80%, transparent 100%) !important;
+        margin: 20px 0 !important;
+        position: relative;
+    }
+    
+    /* ── 4. Refined Tab Bar ── */
+    .stTabs [data-baseweb="tab-list"] { 
+        gap: 2px; 
+        overflow-x: auto; 
+        padding-bottom: 0px;
+        border-bottom: 1px solid rgba(212,175,55,0.15);
+        position: relative;
+    }
+    .stTabs [data-baseweb="tab"] { 
+        height: 40px; 
+        white-space: nowrap; 
+        font-weight: 500; 
+        padding: 0 10px; 
+        font-size: 0.78rem;
+        border-radius: 6px 6px 0 0;
+        transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        border: 1px solid transparent;
+        border-bottom: none;
+        position: relative;
+    }
+    .stTabs [data-baseweb="tab"]:hover { 
+        background: rgba(212,175,55,0.04);
+        color: #d4af37;
+    }
+    .stTabs [aria-selected="true"] { 
+        background: rgba(212,175,55,0.06) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-color: rgba(212,175,55,0.2) !important;
+        border-bottom: 2px solid #d4af37 !important;
+        box-shadow: 0 -4px 20px rgba(212,175,55,0.08), inset 0 1px 0 rgba(212,175,55,0.15);
+        color: #d4af37 !important;
+    }
     
     /* Clean Sidebar Buttons (Pills) */
     div[data-testid="stSidebar"] button {
@@ -57,6 +313,15 @@ st.markdown("""
         color: var(--primary-color) !important;
         background-color: rgba(128,128,128,0.05);
         box-shadow: 0 0 15px rgba(212, 175, 55, 0.4) !important;
+    }
+    
+    /* ── 5. Premium Sidebar ── */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(10,11,16,0.98) 0%, rgba(15,16,22,1) 50%, rgba(10,11,16,0.98) 100%) !important;
+        border-right: 1px solid rgba(212,175,55,0.1) !important;
+    }
+    [data-testid="stSidebar"] hr {
+        background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.3) 50%, transparent 100%) !important;
     }
     
     /* Universal Elements Golden Glow */
@@ -115,6 +380,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+st.markdown("<div class='starfield-layer3'></div>", unsafe_allow_html=True)
 
 # ── Ticker Lists ──
 MARKETS_BY_COUNTRY = {
@@ -402,6 +668,52 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 st.sidebar.divider()
+
+_current_ticker = st.session_state.get("ticker_input", "").strip().upper()
+if _current_ticker:
+    tv_ticker = _current_ticker
+    _tv_exchange_map = {
+        ".MC": "BME:", ".L": "LSE:", ".DE": "XETR:", ".PA": "EURONEXT:", 
+        ".AS": "EURONEXT:", ".MI": "MIL:", ".HK": "HKEX:", ".T": "TSE:",
+        ".KS": "KRX:", ".AX": "ASX:", ".TO": "TSX:", ".SA": "BMFBOVESPA:",
+        ".MX": "BMV:", ".BA": "BCBA:", ".SN": "SNSE:", ".CN": "CSE:",
+        ".SW": "SIX:", ".V": "TSXV:", ".F": "FWB:", ".ST": "OMXSTO:",
+        ".CO": "OMXCPH:", ".HE": "OMXHEL:", ".OL": "OSL:", ".JK": "IDX:",
+        ".JO": "JSE:", ".TA": "TASE:", ".SI": "SGX:", ".LS": "EURONEXT:",
+        ".TW": "TWSE:", ".NS": "NSE:", ".BO": "BSE:"
+    }
+    for _suffix, _prefix in _tv_exchange_map.items():
+        if tv_ticker.endswith(_suffix):
+            tv_ticker = _prefix + tv_ticker.replace(_suffix, "")
+            break
+
+    with st.sidebar:
+        st.markdown("<p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5; font-family:Outfit,sans-serif; text-align:center; margin-bottom:5px;'>Analizando</p>", unsafe_allow_html=True)
+        import streamlit.components.v1 as components
+        tv_sidebar = f"""
+        <div style='background:rgba(128,128,128,0.02); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:0px; overflow:hidden; margin-bottom:5px;'>
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container">
+              <div class="tradingview-widget-container__widget"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+              {{
+              "symbol": "{tv_ticker}",
+              "width": "100%",
+              "height": 180,
+              "locale": "es",
+              "dateRange": "1M",
+              "colorTheme": "dark",
+              "isTransparent": true,
+              "autosize": false,
+              "largeChartUrl": ""
+              }}
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+        </div>
+        """
+        components.html(tv_sidebar, height=190)
+        st.divider()
 
 def set_ticker(t):
     st.session_state["ticker_input"] = t
@@ -888,7 +1200,14 @@ with st.spinner(f"Cargando datos de **{ticker}**..."):
 # ── Parse Info ──
 price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose", 0)
 currency = info.get("currency", "USD")
-sym = "€" if currency == "EUR" else "$"
+_currency_symbols = {
+    "USD": "$", "EUR": "€", "GBP": "£", "GBp": "£", "JPY": "¥", "CNY": "¥",
+    "HKD": "HK$", "CHF": "CHF ", "SEK": "kr", "DKK": "kr", "NOK": "kr",
+    "KRW": "₩", "INR": "₹", "BRL": "R$", "AUD": "A$", "CAD": "C$",
+    "SGD": "S$", "TWD": "NT$", "MXN": "MX$", "ZAR": "R", "ILS": "₪",
+    "PLN": "zł", "CZK": "Kč", "HUF": "Ft", "TRY": "₺", "RUB": "₽"
+}
+sym = _currency_symbols.get(currency, f"{currency} ")
 name = info.get("shortName") or info.get("longName") or ticker
 mkt_cap = info.get("marketCap", 0)
 beta = info.get("beta", 1.0) or 1.0
@@ -896,6 +1215,8 @@ sector = info.get("sector", "N/A")
 industry = info.get("industry", "N/A")
 country = info.get("country", "N/A")
 shares_out = info.get("sharesOutstanding", 1)
+
+# TradingView Ticker Mapping moved to top of sidebar
 
 # ── Header (Trade Republic Style) ──
 pct_change = info.get('regularMarketChangePercent', 0)
@@ -955,14 +1276,37 @@ _badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px sol
 
 _badges_html = "".join(_badges)
 
-st.markdown(f"<h1 style='font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin-bottom: -15px;'>{name} <span style='font-weight: 300; opacity: 0.4; font-size: 1.5rem;'>{ticker}</span></h1>", unsafe_allow_html=True)
-st.markdown(f"""
-<div style="margin-bottom: 30px;">
-    <span class='big-price'>{sym}{price:,.2f}</span>
-    <span class='big-price-sub' style='color: {chg_color};'>{sign}{pct_change:.2f}%</span>
-    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-        {_badges_html}
-    </div>
+# ── 2. Premium Company Header with Logo ──
+_logo_loaded = False
+_col_logo, _col_info = st.columns([0.6, 12])
+with _col_logo:
+    st.markdown("<div style='padding-top: 6px;'></div>", unsafe_allow_html=True)
+    try:
+        _website = info.get("website", "")
+        if _website:
+            _domain = _website.replace("https://","").replace("http://","").split("/")[0]
+        elif "." not in ticker:
+            _domain = f"{name.split()[0].lower().replace(',','').replace('.','')}.com"
+        else:
+            _domain = ""
+        if _domain:
+            _icon_url = f"https://www.google.com/s2/favicons?domain={_domain}&sz=128"
+            import requests as _rq
+            _icon_resp = _rq.get(_icon_url, timeout=3)
+            if _icon_resp.status_code == 200 and len(_icon_resp.content) > 100:
+                st.image(_icon_resp.content, width=52)
+                _logo_loaded = True
+    except:
+        pass
+with _col_info:
+    st.markdown(f"""
+<h1 style="font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin: 0; line-height: 1.1;">{name} <span style="font-weight: 300; opacity: 0.4; font-size: 1.5rem;">{ticker}</span></h1>
+<div style="margin-top: 8px;">
+    <span class="big-price">{sym}{price:,.2f}</span>
+    <span class="big-price-sub" style="color: {chg_color};">{sign}{pct_change:.2f}%</span>
+</div>
+<div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+    {_badges_html}
 </div>
 """, unsafe_allow_html=True)
 
@@ -972,16 +1316,7 @@ if ticker not in st.session_state.get("watchlist", []):
 else:
     st.button("★", key="rm_wl_main", on_click=_remove_from_watchlist, args=(ticker,), help="Quitar de Watchlist")
 
-# ── Sidebar Mini-Card ──
-st.sidebar.divider()
-st.sidebar.markdown(f"""
-<div style='background:rgba(128,128,128,0.06); border:1px solid rgba(212,175,55,0.25); border-radius:12px; padding:14px; text-align:center; margin-bottom:5px;'>
-    <p style='margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px; opacity:0.5; font-family:Outfit,sans-serif;'>Analizando</p>
-    <p style='margin:2px 0 0 0; font-weight:800; font-size:1.1rem;'>{name}</p>
-    <p style='margin:0; font-family:JetBrains Mono,monospace; font-size:1.5rem; font-weight:300; color:#d4af37;'>{sym}{price:,.2f}</p>
-    <span style='color:{chg_color}; font-size:0.9rem; font-weight:600;'>{sign}{pct_change:.2f}%</span>
-</div>
-""", unsafe_allow_html=True)
+
 
 # ── Investment Score Calculation (se muestra dentro del tab del gráfico) ──
 _score = 50
@@ -1117,9 +1452,6 @@ with tab_chart:
         # Estilo de gráfico (1 = Velas, 2 = Línea, 3 = Área)
         tv_style = "2" if chart_type == "Línea Minimalista" else "1"
         
-        # Limpiar el ticker si lleva sufijos raros para que TV lo entienda mejor, aunque suele ser inteligente
-        tv_ticker = ticker
-        
         tv_widget = f"""
         <!-- TradingView Widget BEGIN -->
         <div class="tradingview-widget-container" style="height:600px;width:100%;">
@@ -1200,7 +1532,7 @@ with tab_ta:
         tv_gauge = f"""
         <div style="background: rgba(128,128,128,0.02); border: 1px solid rgba(212,175,55,0.3); border-radius: 12px; padding: 15px; width: 100%; box-sizing: border-box;">
             <!-- TradingView Widget BEGIN -->
-            <div class="tradingview-widget-container" style="width: 100%; height: 380px;">
+            <div class="tradingview-widget-container" style="width: 100%; height: 400px;">
               <div class="tradingview-widget-container__widget" style="width: 100%; height: 100%;"></div>
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
               {{
@@ -1208,7 +1540,7 @@ with tab_ta:
               "width": "100%",
               "isTransparent": true,
               "height": 380,
-              "symbol": "{ticker}",
+              "symbol": "{tv_ticker}",
               "showIntervalTabs": true,
               "displayMode": "single",
               "locale": "es",
@@ -1534,7 +1866,7 @@ with tab_statements:
           "height": 350,
           "colorTheme": "dark",
           "isTransparent": true,
-          "symbol": "{ticker}",
+          "symbol": "{tv_ticker}",
           "locale": "es"
           }}
           </script>
@@ -1544,6 +1876,30 @@ with tab_statements:
     """
     import streamlit.components.v1 as components
     components.html(tv_profile, height=360)
+    
+    st.markdown("#### 📊 Estados Financieros Interactivos (TradingView)")
+    tv_financials = f"""
+    <div style="background: rgba(128,128,128,0.02); border: 1px solid rgba(212,175,55,0.3); border-radius: 12px; padding: 0px; width: 100%; box-sizing: border-box; overflow: hidden; margin-top: 15px;">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="width: 100%; height: 490px;">
+          <div class="tradingview-widget-container__widget" style="width: 100%; height: 100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-financials.js" async>
+          {{
+          "isTransparent": true,
+          "largeChartUrl": "",
+          "displayMode": "regular",
+          "width": "100%",
+          "height": 490,
+          "colorTheme": "dark",
+          "symbol": "{tv_ticker}",
+          "locale": "es"
+          }}
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+    </div>
+    """
+    components.html(tv_financials, height=500)
     
     st.divider()
 
