@@ -717,7 +717,48 @@ if _current_ticker:
         "HEIA.AS": "XETR:HEIA",
         "PHIA.AS": "NYSE:PHG",
         "DSM.AS": "XETR:DSMN",
-        "PRX.AS": "XETR:PRX"
+        "PRX.AS": "XETR:PRX",
+        # Japón (TSE -> NYSE/OTC)
+        "7203.T": "NYSE:TM",
+        "6758.T": "NYSE:SONY",
+        "9984.T": "OTC:SFTBY",
+        "8035.T": "OTC:TOELY",
+        "7974.T": "OTC:NTDOY",
+        "7267.T": "NYSE:HMC",
+        "8306.T": "NYSE:MUFG",
+        "8058.T": "OTC:MSBHF",
+        "4568.T": "OTC:DSNKY",
+        "9983.T": "OTC:FRCOY",
+        # China/HK (HKEX -> NYSE/OTC)
+        "0700.HK": "OTC:TCEHY",
+        "9988.HK": "NYSE:BABA",
+        "3690.HK": "OTC:MPNGY",
+        "1810.HK": "OTC:XIACY",
+        "0981.HK": "OTC:SMICY",
+        "0939.HK": "OTC:CICHY",
+        "1398.HK": "OTC:IDCBY",
+        "1299.HK": "OTC:AAGIY",
+        "2318.HK": "OTC:PNGAY",
+        # Corea del Sur (KRX -> OTC)
+        "005930.KS": "OTC:SSNLF",
+        "000660.KS": "OTC:HXSCF",
+        "005380.KS": "OTC:HYMTF",
+        "051910.KS": "OTC:LGCLF",
+        "000270.KS": "OTC:KIMTF",
+        # Taiwán (TWSE -> NYSE/OTC)
+        "2330.TW": "NYSE:TSM",
+        "2317.TW": "OTC:HNHPF",
+        "2454.TW": "OTC:MDTKF",
+        "2308.TW": "OTC:DLEGF",
+        "2382.TW": "OTC:QUCCF",
+        "2881.TW": "OTC:FUBXF",
+        "2412.TW": "NYSE:CHT",
+        # India (NSE -> NYSE/OTC)
+        "RELIANCE.NS": "OTC:RLNIY",
+        "HDFCBANK.NS": "NYSE:HDB",
+        "INFY.NS": "NYSE:INFY",
+        "ICICIBANK.NS": "NYSE:IBN",
+        "SBIN.NS": "OTC:SBKFF"
     }
     
     if tv_ticker in _tv_specific_map:
@@ -830,6 +871,7 @@ st.sidebar.markdown("### ⚙️ Gráfico")
 chart_period = st.sidebar.selectbox("Periodo", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"], index=8)
 chart_interval = st.sidebar.selectbox("Velas", ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"], index=8)
 chart_type = st.sidebar.radio("Tipo", ["Línea Minimalista", "Velas Japonesas"], index=1)
+_use_native_chart = st.sidebar.toggle("Modo Nativo (Yahoo Finance)", value=False)
 
 st.sidebar.divider()
 st.sidebar.markdown("### 🎨 Estilo")
@@ -1511,8 +1553,7 @@ with tab_chart:
         # Estilo de gráfico (1 = Velas, 2 = Línea, 3 = Área)
         tv_style = "2" if chart_type == "Línea Minimalista" else "1"
         
-        _blocked_prefixes = ()
-        if tv_ticker.startswith(_blocked_prefixes):
+        if _use_native_chart:
             from plotly.subplots import make_subplots
             fig_native = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.8, 0.2])
             
@@ -1526,7 +1567,7 @@ with tab_chart:
             fig_native.update_xaxes(showgrid=True, gridcolor='rgba(255,255,255,0.04)')
             fig_native.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.04)')
             
-            st.markdown(f"<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px;'>Gráfico Nativo A.L.V.A.R.O. (Alternativa de alta precisión activada debido a restricciones de derechos en {tv_ticker.split(':')[0]}).</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:0.85rem; opacity:0.6; margin-bottom:5px; margin-top:-10px;'>Gráfico Nativo generado con los datos exactos y divisa original de <b>{_current_ticker}</b> extraídos de Yahoo Finance.</p>", unsafe_allow_html=True)
             st.plotly_chart(fig_native, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
         else:
             tv_widget = f"""
