@@ -1394,34 +1394,32 @@ _badges.append(f'<span style="background: rgba(128,128,128,0.1); border: 1px sol
 _badges_html = "".join(_badges)
 
 # ── 2. Premium Company Header with Logo ──
-_logo_loaded = False
 _col_logo, _col_info = st.columns([0.6, 12])
 with _col_logo:
-    st.markdown("<div style='padding-top: 6px;'></div>", unsafe_allow_html=True)
-    _logo_loaded = False
     _website = info.get("website", "")
     if _website:
         _domain = _website.replace("https://","").replace("http://","").split("/")[0]
     else:
-        # Siempre intentar derivar del nombre, independientemente del ticker
-        _domain = f"{name.split()[0].lower().replace(',','').replace('.','').replace("'","")}.com"
-    if _domain:
-        import requests as _rq
-        # Intento 1: DuckDuckGo favicon (gratuito, sin token, funciona desde AWS)
-        try:
-            _resp = _rq.get(f"https://icons.duckduckgo.com/ip3/{_domain}.ico", timeout=4)
-            if _resp.status_code == 200 and len(_resp.content) > 200:
-                st.image(_resp.content, width=52)
-                _logo_loaded = True
-        except: pass
-        # Intento 2: Google Favicons como respaldo
-        if not _logo_loaded:
-            try:
-                _resp = _rq.get(f"https://www.google.com/s2/favicons?domain={_domain}&sz=128", timeout=3)
-                if _resp.status_code == 200 and len(_resp.content) > 100:
-                    st.image(_resp.content, width=52)
-                    _logo_loaded = True
-            except: pass
+        _domain = name.split()[0].lower().replace(",","").replace(".","") + ".com"
+    _initials = "".join([w[0] for w in name.split()[:2]]).upper()
+    st.markdown(f"""
+    <div style="padding-top:6px;">
+      <img src="https://icons.duckduckgo.com/ip3/{_domain}.ico"
+           width="48" height="48"
+           style="border-radius:10px; object-fit:contain; background:rgba(20,20,30,0.8);"
+           onerror="this.style.display='none';document.getElementById('li_{ticker}').style.display='flex';" />
+      <div id="li_{ticker}"
+           style="display:none;width:48px;height:48px;border-radius:10px;
+                  background:linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.08));
+                  border:1px solid rgba(212,175,55,0.4);
+                  align-items:center;justify-content:center;
+                  font-size:1.1rem;font-weight:800;color:#d4af37;
+                  font-family:Outfit,sans-serif;letter-spacing:1px;">
+        {_initials}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with _col_info:
     st.markdown(f"""
 <h1 style="font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin: 0; line-height: 1.1;">{name} <span style="font-weight: 300; opacity: 0.4; font-size: 1.5rem;">{ticker}</span></h1>
