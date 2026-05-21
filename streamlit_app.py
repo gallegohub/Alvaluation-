@@ -1187,34 +1187,50 @@ def fetch_data_v4(t, per, intv):
     except: pass
     
     # 3b. Respaldo directo a la API oculta de Yahoo si falló `info`
-    if "sector" not in inf or "totalDebt" not in inf:
+    if "sector" not in inf or "totalDebt" not in inf or "regularMarketChangePercent" not in inf:
         import requests
         try:
-            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{t}?modules=summaryProfile,financialData"
+            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{t}?modules=summaryProfile,financialData,assetProfile,defaultKeyStatistics,summaryDetail,price"
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            res = requests.get(url, headers=headers, timeout=3)
+            res = requests.get(url, headers=headers, timeout=5)
             if res.status_code == 200:
-                data = res.json().get("quoteSummary", {}).get("result", [])[0]
-                if "summaryProfile" in data:
-                    inf["sector"] = data["summaryProfile"].get("sector", inf.get("sector"))
-                    inf["industry"] = data["summaryProfile"].get("industry", inf.get("industry"))
-                    inf["country"] = data["summaryProfile"].get("country", inf.get("country"))
-                if "financialData" in data:
-                    fd = data["financialData"]
-                    if "totalCash" in fd: inf["totalCash"] = fd.get("totalCash", {}).get("raw", 0)
-                    if "totalDebt" in fd: inf["totalDebt"] = fd.get("totalDebt", {}).get("raw", 0)
-                    if "debtToEquity" in fd: inf["debtToEquity"] = fd.get("debtToEquity", {}).get("raw", 0)
+                result = res.json().get("quoteSummary", {}).get("result", [])
+                if result:
+                    data = result[0]
+                    if "summaryProfile" in data:
+                        sp = data["summaryProfile"]
+                        inf.setdefault("sector", sp.get("sector", ""))
+                        inf.setdefault("industry", sp.get("industry", ""))
+                        inf.setdefault("country", sp.get("country", ""))
+                        inf.setdefault("website", sp.get("website", ""))
+                    if "financialData" in data:
+                        fd = data["financialData"]
+                        inf.setdefault("totalCash", (fd.get("totalCash") or {}).get("raw", 0))
+                        inf.setdefault("totalDebt", (fd.get("totalDebt") or {}).get("raw", 0))
+                        inf.setdefault("debtToEquity", (fd.get("debtToEquity") or {}).get("raw", 0))
+                    if "price" in data:
+                        pr = data["price"]
+                        inf.setdefault("currentPrice", (pr.get("regularMarketPrice") or {}).get("raw", 0))
+                        inf.setdefault("regularMarketChangePercent", (pr.get("regularMarketChangePercent") or {}).get("raw", 0) * 100)
+                        inf.setdefault("shortName", pr.get("shortName", ""))
+                        inf.setdefault("longName", pr.get("longName", ""))
         except: pass
-    
-    # 4. Respaldo crítico: Si todo falla, sacamos el precio del histórico
-    if not inf.get("currentPrice") and not inf.get("regularMarketPrice"):
-        if not h.empty and "Close" in h.columns:
-            last_p = float(h["Close"].iloc[-1])
-            inf["currentPrice"] = last_p
-            inf["regularMarketPrice"] = last_p
-            if len(h) >= 2:
-                prev_p = float(h["Close"].iloc[-2])
-                inf["regularMarketChangePercent"] = ((last_p - prev_p) / prev_p) * 100
+
+    # 4. Respaldo crítico: Si todo falla, sacamos el precio y % diario del hist de 2 días
+    if not inf.get("regularMarketChangePercent") or not inf.get("currentPrice"):
+        try:
+            h2 = yf.download(t, period="2d", interval="1d", progress=False)
+            if isinstance(h2.columns, pd.MultiIndex):
+                h2 = h2.xs(t, axis=1, level=1) if t in h2.columns.get_level_values(1) else h2
+            if not h2.empty and "Close" in h2.columns and len(h2) >= 1:
+                last_p = float(h2["Close"].iloc[-1])
+                inf.setdefault("currentPrice", last_p)
+                inf.setdefault("regularMarketPrice", last_p)
+                if len(h2) >= 2:
+                    prev_p = float(h2["Close"].iloc[-2])
+                    if prev_p > 0:
+                        inf["regularMarketChangePercent"] = ((last_p - prev_p) / prev_p) * 100
+        except: pass
 
     # 5. Financieros (Con try/except individual)
     try: inc = stock.financials
@@ -1382,23 +1398,31 @@ _logo_loaded = False
 _col_logo, _col_info = st.columns([0.6, 12])
 with _col_logo:
     st.markdown("<div style='padding-top: 6px;'></div>", unsafe_allow_html=True)
-    try:
-        _website = info.get("website", "")
-        if _website:
-            _domain = _website.replace("https://","").replace("http://","").split("/")[0]
-        elif "." not in ticker:
-            _domain = f"{name.split()[0].lower().replace(',','').replace('.','')}.com"
-        else:
-            _domain = ""
-        if _domain:
-            _icon_url = f"https://www.google.com/s2/favicons?domain={_domain}&sz=128"
-            import requests as _rq
-            _icon_resp = _rq.get(_icon_url, timeout=3)
-            if _icon_resp.status_code == 200 and len(_icon_resp.content) > 100:
-                st.image(_icon_resp.content, width=52)
+    _logo_loaded = False
+    _website = info.get("website", "")
+    if _website:
+        _domain = _website.replace("https://","").replace("http://","").split("/")[0]
+    elif "." not in ticker:
+        _domain = f"{name.split()[0].lower().replace(',','').replace('.','')}.com"
+    else:
+        _domain = ""
+    if _domain:
+        import requests as _rq
+        # Intento 1: Logo.dev (sustituto oficial de Clearbit, funciona en cloud)
+        try:
+            _resp = _rq.get(f"https://img.logo.dev/{_domain}?token=pk_FBpvlZQ5RwSmfIYcSFJidg&size=128&format=png", timeout=4)
+            if _resp.status_code == 200 and len(_resp.content) > 200:
+                st.image(_resp.content, width=52)
                 _logo_loaded = True
-    except:
-        pass
+        except: pass
+        # Intento 2: Google Favicons como respaldo
+        if not _logo_loaded:
+            try:
+                _resp = _rq.get(f"https://www.google.com/s2/favicons?domain={_domain}&sz=128", timeout=3)
+                if _resp.status_code == 200 and len(_resp.content) > 100:
+                    st.image(_resp.content, width=52)
+                    _logo_loaded = True
+            except: pass
 with _col_info:
     st.markdown(f"""
 <h1 style="font-weight: 800; font-size: 2.2rem; letter-spacing: -1px; margin: 0; line-height: 1.1;">{name} <span style="font-weight: 300; opacity: 0.4; font-size: 1.5rem;">{ticker}</span></h1>
