@@ -1402,15 +1402,14 @@ with _col_logo:
     _website = info.get("website", "")
     if _website:
         _domain = _website.replace("https://","").replace("http://","").split("/")[0]
-    elif "." not in ticker:
-        _domain = f"{name.split()[0].lower().replace(',','').replace('.','')}.com"
     else:
-        _domain = ""
+        # Siempre intentar derivar del nombre, independientemente del ticker
+        _domain = f"{name.split()[0].lower().replace(',','').replace('.','').replace("'","")}.com"
     if _domain:
         import requests as _rq
-        # Intento 1: Logo.dev (sustituto oficial de Clearbit, funciona en cloud)
+        # Intento 1: DuckDuckGo favicon (gratuito, sin token, funciona desde AWS)
         try:
-            _resp = _rq.get(f"https://img.logo.dev/{_domain}?token=pk_FBpvlZQ5RwSmfIYcSFJidg&size=128&format=png", timeout=4)
+            _resp = _rq.get(f"https://icons.duckduckgo.com/ip3/{_domain}.ico", timeout=4)
             if _resp.status_code == 200 and len(_resp.content) > 200:
                 st.image(_resp.content, width=52)
                 _logo_loaded = True
