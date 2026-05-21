@@ -1186,35 +1186,56 @@ def fetch_data_v4(t, per, intv):
                     inf[k] = v
     except: pass
     
-    # 3b. Respaldo directo a la API oculta de Yahoo si falló `info`
+    # 3b. Respaldo directo a la API oculta de Yahoo (intenta query1 y query2)
     if "sector" not in inf or "totalDebt" not in inf or "regularMarketChangePercent" not in inf:
         import requests
-        try:
-            url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{t}?modules=summaryProfile,financialData,assetProfile,defaultKeyStatistics,summaryDetail,price"
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            res = requests.get(url, headers=headers, timeout=5)
-            if res.status_code == 200:
-                result = res.json().get("quoteSummary", {}).get("result", [])
-                if result:
-                    data = result[0]
-                    if "summaryProfile" in data:
-                        sp = data["summaryProfile"]
-                        inf.setdefault("sector", sp.get("sector", ""))
-                        inf.setdefault("industry", sp.get("industry", ""))
-                        inf.setdefault("country", sp.get("country", ""))
-                        inf.setdefault("website", sp.get("website", ""))
-                    if "financialData" in data:
-                        fd = data["financialData"]
-                        inf.setdefault("totalCash", (fd.get("totalCash") or {}).get("raw", 0))
-                        inf.setdefault("totalDebt", (fd.get("totalDebt") or {}).get("raw", 0))
-                        inf.setdefault("debtToEquity", (fd.get("debtToEquity") or {}).get("raw", 0))
-                    if "price" in data:
-                        pr = data["price"]
-                        inf.setdefault("currentPrice", (pr.get("regularMarketPrice") or {}).get("raw", 0))
-                        inf.setdefault("regularMarketChangePercent", (pr.get("regularMarketChangePercent") or {}).get("raw", 0) * 100)
-                        inf.setdefault("shortName", pr.get("shortName", ""))
-                        inf.setdefault("longName", pr.get("longName", ""))
-        except: pass
+        _modules = "summaryProfile,financialData,defaultKeyStatistics,summaryDetail,price"
+        _headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://finance.yahoo.com/",
+        }
+        _cookies = {"euConsent": "true", "GUC": "AQEBCAFn", "GUCS": "AQEBCAFn"}
+        _yf_data = None
+        for _base in ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]:
+            try:
+                _res = requests.get(
+                    f"{_base}/v10/finance/quoteSummary/{t}?modules={_modules}",
+                    headers=_headers, cookies=_cookies, timeout=6
+                )
+                if _res.status_code == 200:
+                    _result = _res.json().get("quoteSummary", {}).get("result", [])
+                    if _result:
+                        _yf_data = _result[0]
+                        break
+            except: continue
+        if _yf_data:
+            if "summaryProfile" in _yf_data:
+                sp = _yf_data["summaryProfile"]
+                inf.setdefault("sector", sp.get("sector", ""))
+                inf.setdefault("industry", sp.get("industry", ""))
+                inf.setdefault("country", sp.get("country", ""))
+                inf.setdefault("website", sp.get("website", ""))
+            if "financialData" in _yf_data:
+                fd = _yf_data["financialData"]
+                inf.setdefault("totalCash", (fd.get("totalCash") or {}).get("raw", 0))
+                inf.setdefault("totalDebt", (fd.get("totalDebt") or {}).get("raw", 0))
+                inf.setdefault("debtToEquity", (fd.get("debtToEquity") or {}).get("raw", 0))
+            if "summaryDetail" in _yf_data:
+                sd = _yf_data["summaryDetail"]
+                inf.setdefault("dividendYield", (sd.get("dividendYield") or {}).get("raw", 0))
+                inf.setdefault("trailingAnnualDividendYield", (sd.get("trailingAnnualDividendYield") or {}).get("raw", 0))
+                inf.setdefault("marketCap", (sd.get("marketCap") or {}).get("raw", inf.get("marketCap", 0)))
+                inf.setdefault("beta", (sd.get("beta") or {}).get("raw", 1.0))
+            if "price" in _yf_data:
+                pr = _yf_data["price"]
+                inf.setdefault("currentPrice", (pr.get("regularMarketPrice") or {}).get("raw", 0))
+                pct_raw = (pr.get("regularMarketChangePercent") or {}).get("raw", None)
+                if pct_raw is not None:
+                    inf.setdefault("regularMarketChangePercent", pct_raw * 100)
+                inf.setdefault("shortName", pr.get("shortName", ""))
+                inf.setdefault("longName", pr.get("longName", ""))
 
     # 4. Respaldo crítico: Si todo falla, sacamos el precio y % diario del hist de 2 días
     if not inf.get("regularMarketChangePercent") or not inf.get("currentPrice"):
@@ -1403,20 +1424,13 @@ with _col_logo:
         _domain = name.split()[0].lower().replace(",","").replace(".","") + ".com"
     _initials = "".join([w[0] for w in name.split()[:2]]).upper()
     st.markdown(f"""
-    <div style="padding-top:6px;">
-      <img src="https://icons.duckduckgo.com/ip3/{_domain}.ico"
-           width="48" height="48"
-           style="border-radius:10px; object-fit:contain; background:rgba(20,20,30,0.8);"
-           onerror="this.style.display='none';document.getElementById('li_{ticker}').style.display='flex';" />
-      <div id="li_{ticker}"
-           style="display:none;width:48px;height:48px;border-radius:10px;
-                  background:linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.08));
-                  border:1px solid rgba(212,175,55,0.4);
-                  align-items:center;justify-content:center;
-                  font-size:1.1rem;font-weight:800;color:#d4af37;
-                  font-family:Outfit,sans-serif;letter-spacing:1px;">
-        {_initials}
-      </div>
+    <div style="padding-top:6px;width:48px;height:48px;border-radius:10px;
+                background:linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.08));
+                border:1px solid rgba(212,175,55,0.4);
+                display:flex;align-items:center;justify-content:center;
+                font-size:1.1rem;font-weight:800;color:#d4af37;
+                font-family:Outfit,sans-serif;letter-spacing:1px;">
+      {_initials}
     </div>
     """, unsafe_allow_html=True)
 
